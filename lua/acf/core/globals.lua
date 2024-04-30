@@ -142,7 +142,6 @@ do -- ACF global vars
 	ACF.RefuelSpeed        = 20 -- Liters per second * ACF.FuelRate
 
 	ACF.PhysMassLimit      = 0.15 -- Limit of physical mass to be considered for mobility component calculations. Default 0.15 (15%), choose anywhere between 0-1
-	
 end
 
 do -- ACF Convars & Particles
