@@ -149,6 +149,19 @@ local Settings = {
 
 		Message("Info", "Fuel rate multiplier changed to a factor of " .. Factor .. ".")
 	end,
+	PhysMassLimit = function(Player, _, Value)
+		local Factor = math.Clamp(math.Round(tonumber(Value) or 1, 2), 0.01, 1)
+
+		if ACF.PhysMassLimit == Factor then return end
+
+		local Old = ACF.PhysMassLimit
+
+		ACF.PhysMassLimit = Factor
+
+		if CLIENT and not IsValid(Player) then return end
+
+		Message("Info", "Physical mass ratio limit changed to " .. Factor * 100 .. "%.")
+	end,
 	HEPush = function(Player, _, Value)
 		local Bool = tobool(Value)
 
