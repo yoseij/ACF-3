@@ -60,10 +60,40 @@ function EFFECT:Init(Data)
 end
 
 function EFFECT:Core(Origin, Radius)
-	local Pitch  = math.Clamp(123 - Radius * 3, 60, 120)
+	if Radius < 10 and Radius > 0 then
+		local Pitch = math.Clamp(math.random(-6, 6) + (155 - Radius * 4), 90, 155)
+		local Volume = math.Clamp(Radius / 6, 0.35, 1.2)
 
-	Sounds.PlaySound(Origin, "ambient/explosions/explode_9.wav", 105, Pitch, 1)
-	Sounds.PlaySound(Origin, "ambient/levels/streetwar/city_battle19.wav", 105, Pitch, 1)
+		Sounds.PlaySound(Origin, "ambient/explosions/explode_4.wav", 105, Pitch, Volume)
+		Sounds.PlaySound(Origin, "ambient/levels/streetwar/city_battle15.wav", 116, Pitch, Volume)
+		Sounds.PlaySound(Origin, "ambient/levels/streetwar/city_battle19.wav", 116, Pitch, Volume)
+	end
+
+	if Radius > 10 and Radius < 18 then
+		local Pitch = math.Clamp(math.random(-6, 6) + (155 - Radius * 3), 75, 135)
+		local Volume = math.Clamp(Radius / 10, 0.45, 1.2)
+
+		Sounds.PlaySound(Origin, "ambient/explosions/explode_4.wav", 118, Pitch, Volume)
+		Sounds.PlaySound(Origin, "ambient/levels/streetwar/city_battle15.wav", 121, Pitch, Volume)
+		Sounds.PlaySound(Origin, "ambient/levels/streetwar/city_battle19.wav", 121, Pitch, Volume)
+	end
+
+	if Radius > 18 then
+		local Pitch1 = math.Clamp(math.random(-6, 6) + (155 - Radius * 2.5), 35, 125)
+		local Volume1 = math.Clamp(Radius / 12, 0.6, 1.2)
+		local Pitch2 = math.Clamp(100 - (Radius - 10), 37, 100)
+		local Volume2 = math.Clamp(Radius / 12, 0, 1)
+
+		Sounds.PlaySound(Origin, "ambient/explosions/explode_4.wav", 124, Pitch1, Volume1)
+		Sounds.PlaySound(Origin, "ambient/explosions/explode_8.wav", 124, Pitch1, Volume1)
+		Sounds.PlaySound(Origin, "ambient/levels/streetwar/city_battle11.wav", 143, Pitch2 * 1.2, Volume2)
+		Sounds.PlaySound(Origin, "ambient/levels/streetwar/city_battle17.wav", 143, Pitch2 * 1.2, Volume2)
+
+		if Radius > 31 then
+			Sounds.PlaySound(Origin, "ambient/explosions/explode_6.wav", 124, Pitch1, Volume1)
+			Sounds.PlaySound(Origin, "ambient/levels/streetwar/city_battle10.wav", 150, Pitch2 * 1.3, Volume2)
+		end
+	end
 end
 
 function EFFECT:GroundImpact(Emitter, Origin, Radius, HitNormal, SmokeColor, Mult)
