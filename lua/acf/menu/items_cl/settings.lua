@@ -236,6 +236,14 @@ do -- Serverside settings
 
 			return Value
 		end)
+
+		local PhysRatio = Base:AddSlider("Physical Mass Ratio", 0.01, 1, 2)
+		PhysRatio:SetServerData("PhysMassLimit", "OnValueChanged")
+		PhysRatio:DefineSetter(function(Panel, _, _, Value)
+			Panel:SetValue(Value)
+
+			return Value
+		end)
 	end)
 
 	ACF.AddServerSettings(101, "Entity Pushing", function(Base)
