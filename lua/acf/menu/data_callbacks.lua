@@ -154,8 +154,6 @@ local Settings = {
 
 		if ACF.PhysMassLimit == Factor then return end
 
-		local Old = ACF.PhysMassLimit
-
 		ACF.PhysMassLimit = Factor
 
 		if CLIENT and not IsValid(Player) then return end
