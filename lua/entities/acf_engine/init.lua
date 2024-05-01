@@ -674,7 +674,7 @@ function ENT:CalcMassRatio(SelfTbl)
 		end
 	end
 
-	SelfTbl.MassRatio = PhysMass / TotalMass
+	SelfTbl.MassRatio = math.Clamp(PhysMass / TotalMass, 0, ACF.PhysMassLimit)
 	TotalMass = Round(TotalMass, 2)
 	PhysMass = Round(PhysMass, 2)
 

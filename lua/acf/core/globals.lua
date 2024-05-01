@@ -140,6 +140,8 @@ do -- ACF global vars
 	ACF.RefillDistance     = 300 -- Distance in which ammo crate starts refilling.
 	ACF.RefillSpeed        = 700 -- (ACF.RefillSpeed / RoundMass) / Distance
 	ACF.RefuelSpeed        = 20 -- Liters per second * ACF.FuelRate
+
+	ACF.PhysMassLimit      = 0.15 -- Limit of physical mass to be considered for mobility component calculations. Default 0.15 (15%), choose anywhere between 0-1
 end
 
 do -- ACF Convars & Particles
