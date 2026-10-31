@@ -136,6 +136,7 @@ do -- ACF global vars
 	ACF.DefineSetting("RequireFuel",          true,   "Engine fuel requirements have been %s.", ACF.BooleanDataCallback(), false)
 	ACF.DefineSetting("AllowBaseplateDamage", false,  "Non-ACF damage while driving baseplates has been %s.", ACF.BooleanDataCallback())
 	ACF.DefineSetting("SquishyDamageMult",    1,      "Player/NPC damage multiplier has been set to a factor of %.2f.", ACF.FloatDataCallback(0.1, 2, 2))
+	ACF.DefineSetting("FireEnabled",          true,   "Fire has been %s.", ACF.BooleanDataCallback())
 
 	ACF.BlastAreaCoef = 1 / 264.7 -- Multiplier used to scale HE blast area against an entity's surface area. Kept separate from the convex armor health coefficient.
 
@@ -378,6 +379,36 @@ do -- ACF global vars
 	ACF.LiIonED            = 0.458 -- li-ion energy density: kw hours / liter
 	ACF.SupplyDistance     = 300 -- Distance in which supply units distribute mass to containers.
 	ACF.SupplyMassRate     = 0.007017 -- kg per second per cubic inch of supply unit volume (no distance attenuation)
+
+	-- Fire
+	ACF.FireTickRate          = 0.25 -- Seconds between fire updates; every fire on the server updates on the same tick
+	ACF.FuelBurnRateMult      = 3 -- Multiplier on how fast fuel spills and batteries burn; lower makes fires last longer and burn cooler
+	ACF.FuelLeakMult          = 2 -- Multiplier on how fast holed fuel tanks leak
+	ACF.FuelPoolHalfLife      = 60 -- Seconds for a spill to drain off through the hull, lit or not
+	ACF.FuelRuptureAreaRatio  = 0.05 -- Fraction of a destroyed tank's surface torn open
+	ACF.FuelSealLiner         = 0.5 -- in, rubber liner of self-sealing tanks; WWII aircraft used about an inch, Cold War cells were thinner
+	ACF.FuelHotSurfaceRange   = 48 -- Running engines this close (gmu) can light spilled fuel
+	ACF.FireballRadiusRatio   = 0.2 -- Fraction of an explosion's blast radius its fireball reaches, lighting ruptured fuel inside it
+	ACF.FuelFireballFraction  = 0.25 -- Fraction of a ruptured petrol tank's contents sprayed out and flashing over when lit
+	ACF.FuelFireballYield     = 0.1 -- kg of HE-equivalent blast per kg of fuel flashing over
+	ACF.BatteryIgnitionScale  = 5 -- Battery ignition chance scales with the fraction of the pack a hit destroys, times this
+	ACF.BatteryFireDuration   = 600 -- Seconds for thermal runaway to work through a full charge; EV pack fires last tens of minutes
+	ACF.BatteryFireHeatRatio  = 3 -- Heat released by runaway per unit of stored electrical energy
+
+	-- Fire heat
+	ACF.CrewTenableFlux       = 2500 -- W/m², skin tolerates less than this indefinitely; above it burns follow 4 q^-1.35 minutes (Purser)
+	ACF.FireContactFlux       = 10e3 -- W/m², flame contact: lights exposed fuel, and components start degrading above it
+	ACF.FireDamageRate        = 0.01 -- Fraction of max health a component loses per second, per 100 kW/m² above FireContactFlux
+	ACF.FuelTankHeatDose      = 20e6 -- J/m² a fuel tank takes before it vents and catches fire
+	ACF.EngineHeatDose        = 10e6 -- J/m² an engine takes before its oil and fuel lines catch fire
+	ACF.EngineIgnitionChance  = 0.1 -- Chance a perforating hit sets a running engine on fire
+
+	-- Ammo fires
+	ACF.AmmoHeatDose          = 5e6 -- J/m² a crate soaks up before its propellant cooks off
+	ACF.AmmoBurnTime          = 6 -- Seconds a cookoff takes to burn through its propellant when it can vent; no source gives one
+	ACF.AmmoBurstDelay        = 3 -- Seconds for a contained cookoff's pressure to build until the crate bursts
+	ACF.AmmoBurstPressure     = 1e6 -- Pa, what a vehicle's structure holds before it gives way; NFPA 68 opens vents at 75% of what the enclosure takes
+	ACF.AmmoVentAreaPerKg     = 0.002 -- m² of opening per kg of propellant a cookoff needs to vent instead of bursting
 
 	-- Crew
 	-- Total efficiency = clamp(CommanderEff * CommanderCoef + SelfEff * SelfCoef, FallBackCoef, 1)

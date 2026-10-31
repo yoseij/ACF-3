@@ -75,6 +75,92 @@ function Damage.NetworkConvex(Entity, ConvexID)
 	Convexes[ConvexID] = Step
 end
 
+do -- MARK: Breaches
+	local random = math.random
+
+	--- @return number # Fraction of the convex its holes have opened, which is also the chance a line through it passes a hole.
+	function Damage.GetConvexOpening(Convex)
+		return (Convex.HoleArea or 0) / ((Convex.SurfaceArea or math.huge) * 0.5)
+	end
+
+	--- Opens more of a convex, up to one of its faces.
+	--- @param Area number Hole area to add in in².
+	function Damage.AddConvexHole(Convex, Area)
+		local MaxHole = Convex.SurfaceArea and Convex.SurfaceArea * 0.5 or math.huge -- A plate can't open wider than one of its faces
+
+		Convex.HoleArea = math.min((Convex.HoleArea or 0) + Area, MaxHole)
+	end
+
+	--- Calls Visit for each layer of an entity a line goes through, skipping layers it slips through a hole in.
+	--- @param Visit function Called with the layer (see ACF.GetConvexHits) and its convex.
+	function Damage.ForEachSolidLayer(Entity, HitPos, Direction, Visit)
+		local MeshData = Entity.ACF_Volumetric_Mesh
+
+		if not MeshData then return end
+
+		for _, Layer in ipairs(ACF.GetConvexHits(Entity, HitPos, Direction)) do
+			local Convex = MeshData.Convexes[Layer.ConvexID]
+
+			if random() >= Damage.GetConvexOpening(Convex) then Visit(Layer, Convex) end
+		end
+	end
+
+	local Kinetic, Chemical = 0, 0
+
+	local function AddArmor(Layer)
+		Kinetic  = Kinetic + Layer.GeoThick * Layer.ArmorType.KineticMul
+		Chemical = Chemical + Layer.GeoThick * Layer.ArmorType.ChemicalMul
+	end
+
+	--- @return number # Kinetic RHA in mm of the solid layers a line goes through.
+	--- @return number # Chemical RHA in mm of the same layers.
+	function Damage.GetSolidArmor(Entity, HitPos, Direction)
+		Kinetic, Chemical = 0, 0
+
+		Damage.ForEachSolidLayer(Entity, HitPos, Direction, AddArmor)
+
+		return Kinetic, Chemical
+	end
+end
+
+do -- MARK: Line piercing
+	local MAX_PIERCES = 32
+	local Filter      = {}
+	local Result      = {}
+	local TraceData   = { start = true, endpos = true, filter = Filter, output = Result }
+
+	--- Follows a line through everything on it, nearest first.
+	--- The result passed to Visit is reused, so don't keep it.
+	--- @param Ignore table Entities the line passes through untouched.
+	--- @param Visit function Called with each trace result that hits something, return true to stop there.
+	--- @return boolean # True if Visit stopped the line, false if it ran out first.
+	function Damage.PierceLine(Start, Finish, Ignore, Visit)
+		local Count   = #Ignore
+		local Stopped = false
+
+		for I = 1, Count do Filter[I] = Ignore[I] end
+
+		TraceData.start  = Start
+		TraceData.endpos = Finish
+
+		for _ = 1, MAX_PIERCES do
+			util.TraceLine(TraceData)
+
+			if not Result.Hit then break end
+			if Visit(Result) then Stopped = true break end
+
+			Count = Count + 1
+
+			Filter[Count]   = Result.Entity
+			TraceData.start = Result.HitPos
+		end
+
+		for I = Count, 1, -1 do Filter[I] = nil end
+
+		return Stopped
+	end
+end
+
 --- Helper function used to generate DamageResult and DamageInfo objects from projectile information.
 -- @param Bullet A bullet object.
 -- @param Trace The result table of a trace.
@@ -115,7 +201,15 @@ function Damage.getBulletDamage(Bullet, Trace)
 
 				Thickness = Thickness + Effective
 				Budget    = Budget - Consumed
-				Hits[#Hits + 1] = { ConvexID = Hit.ConvexID, Volume = Hit.GeoThick * Frac * 0.1 * Area / ACF.InchToCmCu, Frac = Frac } -- (mm)(mm to cm)(cm^2) = cm^3, then cm^3 to in^3
+				local HitArea = Area / ACF.InchToCmSq -- in²
+
+				Hits[#Hits + 1] = {
+					ConvexID = Hit.ConvexID,
+					Volume   = Hit.GeoThick * Frac * 0.1 * Area / ACF.InchToCmCu, -- (mm)(mm to cm)(cm^2) = cm^3, then cm^3 to in^3
+					Frac     = Frac,
+					HitArea  = HitArea,
+					HoleArea = Effective > 0 and Budget > 0 and HitArea or nil, -- Only a full perforation opens the convex
+				}
 			end
 
 			Angle = 0 -- GeoThick already accounts for obliquity
@@ -136,6 +230,7 @@ function Damage.getBulletDamage(Bullet, Trace)
 		DmgInfo:SetAttacker(Bullet.Owner)
 		DmgInfo:SetInflictor(Bullet.Gun)
 		DmgInfo:SetType(DMG_BULLET)
+		DmgInfo:SetIgnition(Bullet.DamageArea and "Jet" or "Hit") -- Only HEAT jets set DamageArea
 		DmgInfo:SetOrigin(Bullet.Pos)
 		DmgInfo:SetHitPos(HitPos)
 		DmgInfo:SetHitGroup(Trace.HitGroup)
@@ -292,6 +387,12 @@ function Damage.doPropDamage(Entity, DmgResult, DmgInfo)
 	local ConvexHits = DmgInfo and DmgInfo:GetConvexHits()
 
 	if MeshData and ConvexHits then
+		for _, Hit in ipairs(ConvexHits) do
+			local Convex = Hit.HoleArea and MeshData.Convexes[Hit.ConvexID]
+
+			if Convex then Damage.AddConvexHole(Convex, Hit.HoleArea) end
+		end
+
 		if Entity.IsACFEntity then
 			-- ACF entities defer convex damage to the entity's total health rather than depleting the convexes themselves.
 			-- In the future, this should be replaced with a per convex damage system. This is for some backwards compatibility.
