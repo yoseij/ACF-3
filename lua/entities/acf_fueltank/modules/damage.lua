@@ -7,13 +7,15 @@ local HookRun = hook.Run
 
 local GRAVITY          = 9.81 -- m/s²
 local LEAK_COEF        = 0.6 -- Discharge coefficient of a sharp-edged hole
-local POOL_MIN_MASS    = 0.5 -- kg, a spill thinner than this can't sustain a fire and is gone
+local POOL_DEPTH       = 0.005 -- m, spilled fuel spreads out to this depth, which sets how much of it burns at once
+local POOL_MAX_AREA    = 2 -- m², a hull floor can't hold a wider spill
 local SEAL_MAX_CALIBER = 20 -- mm, MIL-T-5578 cells seal .50 cal and 20 mm; bigger holes tear the liner
 local SEAL_MAX_AREA    = (SEAL_MAX_CALIBER * 0.05) ^ 2 * math.pi / ACF.InchToCmSq -- in², the hole that caliber leaves
 local SEAL_TIME        = 5 -- Seconds for the liner to swell shut
 local BOIL_OFF         = 0.1 -- Fraction of the fuel a tank vents once heat makes it boil
 
-ENT.Spilled = 0 -- kg of fuel spilled around the tank, which is what actually burns
+ENT.Spilled  = 0 -- kg of fuel spilled around the tank, which is what actually burns
+ENT.PoolArea = 0 -- m² the spill has spread over; it thins rather than shrinks as it burns or drains
 
 -- Rolls a per-second chance over a tick
 local function RollPerSecond(Chance, DeltaTime)
@@ -28,7 +30,7 @@ do -- MARK: Damage and leaks
 		ACF.Hints.Set(Entity, "fueltank_leaking", Leaking)
 	end
 
-	--- @return number # Open area of the tank in in²: holes through its shell, plus a rupture while it's destroyed.
+	--- @return number # Open area of the tank in in²: holes through its shell, holes its liner hasn't closed yet, plus a rupture while it's destroyed.
 	function ENT:GetLeakArea()
 		local MeshData = self.ACF_Volumetric_Mesh
 		local Area     = 0
@@ -36,6 +38,12 @@ do -- MARK: Damage and leaks
 		if MeshData then
 			for _, Convex in ipairs(MeshData.Convexes) do
 				Area = Area + (Convex.HoleArea or 0)
+			end
+		end
+
+		if self.Seals then
+			for _, Seal in ipairs(self.Seals) do
+				Area = Area + Seal.Area
 			end
 		end
 
@@ -74,9 +82,23 @@ do -- MARK: Damage and leaks
 
 		self:Consume(Amount)
 
-		self.Spilled = self.Spilled + Amount * self.UnitMass
+		self.Spilled  = self.Spilled + Amount * self.UnitMass
+		self.PoolArea = math.max(self.PoolArea, math.min(self.Spilled / self.UnitMass * 0.001 / POOL_DEPTH, POOL_MAX_AREA))
 
 		self:NextThink(Clock.CurTime) -- Start draining it
+	end
+
+	--- Takes fuel out of the spill, as a fire burns it or it drains away.
+	--- @param Mass number kg to take.
+	--- @return number # kg taken, which is all that's left if that's less.
+	function ENT:TakeSpill(Mass)
+		Mass = math.min(Mass, self.Spilled)
+
+		self.Spilled = self.Spilled - Mass
+
+		if self.Spilled <= 0 then self.PoolArea = 0 end
+
+		return Mass
 	end
 
 	-- The convexes a hit reaches, with the hole area each had before it
@@ -90,7 +112,7 @@ do -- MARK: Damage and leaks
 		for _, Hit in ipairs(ConvexHits) do
 			local Convex = MeshData.Convexes[Hit.ConvexID]
 
-			if Convex then Before[Hit] = { Convex = Convex, Area = Convex.HoleArea or 0 } end
+			if Convex then Before[Hit] = { Convex = Convex, Area = Convex.HoleArea } end
 		end
 
 		return Before
@@ -100,16 +122,23 @@ do -- MARK: Damage and leaks
 	-- A liner only closes what the hit opened, so a capped convex's earlier tear stays open.
 	local function PunchHoles(Entity, HitConvexes)
 		for Hit, Entry in pairs(HitConvexes) do
+			if Hit.HitArea and (Hit.Frac or 1) > 0 then Damage.AddConvexHole(Entry.Convex, Hit.HitArea) end
+		end
+
+		if not Entity.SelfSealing then return end
+
+		for Hit, Entry in pairs(HitConvexes) do
 			local Convex = Entry.Convex
+			local Opened = (Convex.HoleArea or 0) - (Entry.Area or 0) -- 0 once a hit sharing this convex took it
 
-			if Hit.HitArea and (Hit.Frac or 1) > 0 then Damage.AddConvexHole(Convex, Hit.HitArea) end
+			if Opened > 0 and (Hit.HitArea or 0) / (Hit.Holes or 1) <= SEAL_MAX_AREA then
+				-- The hole leaks from the seal instead of the convex, so closing it removes the seal rather than
+				-- subtracting back out of the convex, which would leave rounding behind as a leak that never ends
+				Convex.HoleArea = Entry.Area
 
-			local Opened = (Convex.HoleArea or 0) - Entry.Area
-
-			if Opened > 0 and Entity.SelfSealing and (Hit.HitArea or 0) / (Hit.Holes or 1) <= SEAL_MAX_AREA then
 				local Seals = Entity.Seals or {}
 
-				Seals[#Seals + 1] = { Convex = Convex, Area = Opened, Time = Clock.CurTime + SEAL_TIME }
+				Seals[#Seals + 1] = { Area = Opened, Time = Clock.CurTime + SEAL_TIME }
 
 				Entity.Seals = Seals
 			end
@@ -122,13 +151,7 @@ do -- MARK: Damage and leaks
 		if not Seals then return end
 
 		for I = #Seals, 1, -1 do
-			local Seal = Seals[I]
-
-			if Now >= Seal.Time then
-				Seal.Convex.HoleArea = math.max((Seal.Convex.HoleArea or 0) - Seal.Area, 0)
-
-				table.remove(Seals, I)
-			end
+			if Now >= Seals[I].Time then table.remove(Seals, I) end
 		end
 
 		if not Seals[1] then Entity.Seals = nil end
@@ -155,19 +178,16 @@ do -- MARK: Damage and leaks
 		return false
 	end
 
-	-- Spilled fuel runs off through the hull whether or not it's alight, and hot engines can light it
-	local function UpdateSpill(Entity, FuelType, Feeding, DeltaTime)
-		if Entity.Spilled <= 0 then return end
+	-- Hot engines can light a spill, and an unlit one runs off through the hull.
+	-- A lit one is left to its fire, as draining it away would put out fires too small to outburn the drain.
+	local function UpdateSpill(Entity, FuelType, DeltaTime)
+		if Entity.Spilled <= 0 or Fire.IsBurning(Entity) then return end
 
 		local Chance = FuelType and FuelType:GetIgnitionChance("HotSurface", 0) or 0
 
-		if Chance > 0 and not Fire.IsBurning(Entity) and IsNearRunningEngine(Entity) and RollPerSecond(Chance, DeltaTime) then
-			Fire.Ignite(Entity, "HotSurface")
-		end
+		if Chance > 0 and IsNearRunningEngine(Entity) and RollPerSecond(Chance, DeltaTime) and Fire.Ignite(Entity, "HotSurface") then return end
 
-		Entity.Spilled = Entity.Spilled * 0.5 ^ (DeltaTime / ACF.FuelPoolHalfLife)
-
-		if Entity.Spilled < POOL_MIN_MASS and not Feeding then Entity.Spilled = 0 end -- Too thin to keep burning
+		Entity:TakeSpill(ACF.FuelPoolDrainRate * DeltaTime)
 	end
 
 	--- Moves leaking fuel into the spill, closes sealed holes and drains the spill away
@@ -186,7 +206,7 @@ do -- MARK: Damage and leaks
 
 		if (Leaking > 0) ~= WasLeaking then UpdateLeakState(self) end
 
-		UpdateSpill(self, FuelType, Leaking > 0, DeltaTime)
+		UpdateSpill(self, FuelType, DeltaTime)
 
 		self.LastThink = Now
 

@@ -1,8 +1,5 @@
 local Classes = ACF.Classes
 
-local POOL_DEPTH    = 0.005 -- m, spilled fuel spreads out to this depth, which sets how much of it burns at once
-local POOL_MAX_AREA = 2 -- m², a hull floor can't hold a wider spill
-
 Classes.DefineClass("ACF.FuelTypes.FuelType", function(CLASS)
     CLASS.ID          = "FuelType"
     CLASS.Name        = "Fuel Type"
@@ -54,22 +51,16 @@ Classes.DefineClass("ACF.FuelTypes.FuelType", function(CLASS)
         return self.IgnitionChance[Source] or 0
     end
 
-    --- Burns a tank's spill across its whole surface, so a small one burns slower and dies down as it shrinks.
+    --- Burns a tank's spill across the area it spread to, so a pool burns down at a steady rate until it's gone.
     --- @return number|nil # Heat released in watts, nil once there's nothing left to burn.
     function CLASS:Burn(Tank, DeltaTime)
-        local Spilled = Tank.Spilled
-
-        if Spilled <= 0 then
+        if Tank.Spilled <= 0 then
             if Tank.Leaking > 0 then return 0 end -- More is on its way
 
             return
         end
 
-        local Volume = Spilled / (self.Density * 1000) -- m³
-        local Area   = math.min(Volume / POOL_DEPTH, POOL_MAX_AREA)
-        local Burnt  = math.min(Spilled, self.BurnRate * ACF.FuelBurnRateMult * Area * DeltaTime)
-
-        Tank.Spilled = Spilled - Burnt
+        local Burnt = Tank:TakeSpill(self.BurnRate * ACF.FuelBurnRateMult * Tank.PoolArea * DeltaTime)
 
         return Burnt * self.HeatOfCombustion / DeltaTime
     end

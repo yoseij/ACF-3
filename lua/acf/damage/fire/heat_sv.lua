@@ -93,13 +93,13 @@ do -- MARK: Hot walls
 				NewTemp = Temp < Balance and min(NewTemp, Balance) or max(NewTemp, Balance)
 
 				Convex.FireIncident = nil
+				Convex.FireTemp     = NewTemp
 
-				if Incident <= 0 and NewTemp - AMBIENT < 1 then -- Slow-heating walls gain less than this per tick
+				-- Radiating less than the heat that counts anywhere, a cooling wall can't heat anything and is done
+				if Incident <= 0 and Fire.GetWallEmission(Convex) < MIN_FLUX then
 					Convex.FireTemp = nil
 
 					HotWalls[Convex] = nil
-				else
-					Convex.FireTemp = NewTemp
 				end
 			end
 		end

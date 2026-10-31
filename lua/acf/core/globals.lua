@@ -384,7 +384,7 @@ do -- ACF global vars
 	ACF.FireTickRate          = 0.25 -- Seconds between fire updates; every fire on the server updates on the same tick
 	ACF.FuelBurnRateMult      = 3 -- Multiplier on how fast fuel spills and batteries burn; lower makes fires last longer and burn cooler
 	ACF.FuelLeakMult          = 2 -- Multiplier on how fast holed fuel tanks leak
-	ACF.FuelPoolHalfLife      = 60 -- Seconds for a spill to drain off through the hull, lit or not
+	ACF.FuelPoolDrainRate     = 1 -- kg/s an unlit spill drains off through the hull; a lit one is left to its fire
 	ACF.FuelRuptureAreaRatio  = 0.05 -- Fraction of a destroyed tank's surface torn open
 	ACF.FuelSealLiner         = 0.5 -- in, rubber liner of self-sealing tanks; WWII aircraft used about an inch, Cold War cells were thinner
 	ACF.FuelHotSurfaceRange   = 48 -- Running engines this close (gmu) can light spilled fuel

@@ -57,7 +57,7 @@ Classes.DefineClass("ACF.ArmorTypes.Diesel", "ACF.ArmorTypes.BaseArmorType", fun
     CLASS.ShortName   = "Diesel"
     CLASS.Description = "Provides slight CE protection. Spilled fuel is hard to light."
     CLASS.SuppressLoad = true
-    CLASS.Density     = 0.745 -- lua/acf/entities/fuel_types/diesel.lua (0.745 kg/L)
+    CLASS.Density     = 0.832 -- lua/acf/entities/fuel_types/diesel.lua (0.832 kg/L)
     CLASS.SpecificHeat = 2000
     CLASS.CostMul     = 1.8
     CLASS.HealthMul   = 0.015 -- Same as Component, it's the tank around the fuel that ruptures
@@ -73,7 +73,7 @@ Classes.DefineClass("ACF.ArmorTypes.Petrol", "ACF.ArmorTypes.BaseArmorType", fun
     CLASS.ShortName   = "Petrol"
     CLASS.Description = "Provides negligible protection. Spilled fuel lights easily."
     CLASS.SuppressLoad = true
-    CLASS.Density     = 0.832 -- lua/acf/entities/fuel_types/petrol.lua (0.832 kg/L)
+    CLASS.Density     = 0.745 -- lua/acf/entities/fuel_types/petrol.lua (0.745 kg/L)
     CLASS.SpecificHeat = 2000
     CLASS.CostMul     = 2.07
     CLASS.HealthMul   = 0.015 -- Same as Component, it's the tank around the fuel that ruptures
