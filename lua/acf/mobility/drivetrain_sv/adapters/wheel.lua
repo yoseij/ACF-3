@@ -167,6 +167,8 @@ local function Rebind(self)
 	self.Phys       = Phys
 	self.InertiaAge = 0 -- Its inertia, radius and what is locked to it are read again on its next step
 
+	PHYSOBJ.EnableDrag(Phys, false) -- A new physics object starts with drag
+
 	return Phys, true, PHYSOBJ.IsMotionEnabled(Phys)
 end
 
@@ -179,6 +181,10 @@ function Wheel.New(Entity, Axis, Reference, Train)
 	local Phys = Entity:GetPhysicsObject()
 
 	if not IsPhysObjValid(Phys) then return end
+
+	-- Physics drag can zero a light prop's spin in one tick, and the load learned from that miss grows until it
+	-- turns the engine backwards
+	PHYSOBJ.EnableDrag(Phys, false)
 
 	local Inertia = GetAxialInertia(Phys, Axis)
 	local Body    = Drivetrain.Output.New(Inertia)

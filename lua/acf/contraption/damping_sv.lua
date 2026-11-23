@@ -33,11 +33,28 @@ do -- MARK: Default damping
 		return Con and IsValid(Con.ACF_Baseplate) or false
 	end
 
+	local function IsAircraft(Baseplate)
+		local Type = IsValid(Baseplate) and Baseplate:ACF_GetUserVar("BaseplateType")
+
+		return Type and ACF.Classes.GetTypeName(Type:GetType()) == "ACF.Baseplates.Aircraft" or false
+	end
+
+	-- Aircraft builders set their own drag. A joining baseplate isn't its contraption's yet, and a paste's
+	-- contraption forms after its hooks run.
+	local function KeepsDrag(Entity, Baseplate)
+		if Entity:GetClass() == "acf_baseplate" then return IsAircraft(Entity) end
+
+		local Con = Entity:CFW_GetContraption()
+
+		return IsAircraft(Con and IsValid(Con.ACF_Baseplate) and Con.ACF_Baseplate or Baseplate)
+	end
+
 	--- Velocity damping slows a body at a rate that grows with its speed, so with the mass ratio it held a
-	--- heavy vehicle far below its power's top speed; rolling resistance does that job instead. Damping set
-	--- on purpose, such as a seat's, differs from the default and is kept.
+	--- heavy vehicle far below its power's top speed; rolling resistance does that job instead, and drag goes
+	--- with it. Damping set on purpose, such as a seat's, differs from the default and is kept.
 	--- @param Entities table # Entities as values, as a paste's created entities are
-	function Contraption.ClearDefaultDamping(Entities)
+	--- @param Baseplate entity? # The vehicle's, where its contraption may not have it yet
+	function Contraption.ClearDefaultDamping(Entities, Baseplate)
 		for _, Entity in pairs(Entities) do
 			local Phys = IsValid(Entity) and Entity:GetPhysicsObject()
 
@@ -47,6 +64,8 @@ do -- MARK: Default damping
 				if IsDefault(Linear) or IsDefault(Angular) then
 					Phys:SetDamping(IsDefault(Linear) and 0 or Linear, IsDefault(Angular) and 0 or Angular)
 				end
+
+				if Phys:IsDragEnabled() and not KeepsDrag(Entity, Baseplate) then Phys:EnableDrag(false) end
 			end
 		end
 	end
@@ -58,22 +77,27 @@ do -- MARK: Default damping
 		if not CreatedEntities then return end
 
 		local Until = CurTime() + PASTE_WINDOW
+		local Baseplate
 
 		for _, Entity in pairs(CreatedEntities) do
 			-- Before its welds and parents exist, for Primitive below
-			if IsValid(Entity) then Pasted[Entity] = Until end
+			if IsValid(Entity) then
+				Pasted[Entity] = Until
+
+				if Entity:GetClass() == "acf_baseplate" then Baseplate = Entity end
+			end
 		end
 
-		timer.Simple(0, function() Contraption.ClearDefaultDamping(CreatedEntities) end)
+		timer.Simple(0, function() Contraption.ClearDefaultDamping(CreatedEntities, Baseplate) end)
 	end
 
 	-- A vehicle built in place, not pasted, gets the same: each body that joins one, and all of them when the
 	-- baseplate joins. A merge adds the smaller contraption's entities one by one, so this sees every join.
 	hook.Add("cfw.contraption.entityAdded", "ACF Clear Default Damping", function(Con, Entity)
 		if Entity:GetClass() == "acf_baseplate" then
-			Contraption.ClearDefaultDamping(table.GetKeys(Con.ents))
+			Contraption.ClearDefaultDamping(table.GetKeys(Con.ents), Entity)
 		elseif IsValid(Con.ACF_Baseplate) then
-			Contraption.ClearDefaultDamping({ Entity })
+			Contraption.ClearDefaultDamping({ Entity }, Con.ACF_Baseplate)
 		end
 	end)
 
