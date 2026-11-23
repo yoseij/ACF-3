@@ -452,8 +452,11 @@ elseif SERVER then -- Serverside-only stuff
 		-- Determine driven/undriven wheels
 		local DrivenWheels, UndrivenWheels = {}, {}
 		for Wheel in pairs(Selections.Wheels or EmptyTable) do
-			if Wheel.ACF_Gearboxes and table.Count(Wheel.ACF_Gearboxes) > 0 then DrivenWheels[Wheel] = true
-			else UndrivenWheels[Wheel] = true end
+			if next(Wheel.ACF_Gearboxes or EmptyTable) or next(Wheel.ACF_Engines or EmptyTable) then
+				DrivenWheels[Wheel] = true
+			else
+				UndrivenWheels[Wheel] = true
+			end
 		end
 
 		-- Drivewheel constraints

@@ -504,11 +504,11 @@ if SERVER then
 		return CreateEntity(pos, ang, data, "acf_gun", "Weapon")
 	end
 
-	--- Returns the internal torque multiplier
+	--- Deprecated. ACF no longer multiplies engine torque, so this always returns 1.
 	-- @server
-	-- @return number ACF.TorqueMult
+	-- @return number 1
 	function acf_library.getTorqueMult()
-		return ACF.TorqueMult or 1
+		return 1
 	end
 
 	--- Returns true if This entity contains sensitive info and is not accessable to us
@@ -1332,15 +1332,8 @@ if SERVER then
 		if RestrictInfo(This) then return false end
 		if not This.FlyRPM then return false end
 
-		local PowerbandMin, PowerbandMax
-
-		if This.IsElectric then
-			PowerbandMin = This.IdleRPM
-			PowerbandMax = math.floor((This.LimitRPM or 0) * 0.5)
-		else
-			PowerbandMin = This.PeakMinRPM
-			PowerbandMax = This.PeakMaxRPM
-		end
+		local PowerbandMin = This.PeakMinRPM
+		local PowerbandMax = This.PeakMaxRPM
 
 		if not PowerbandMin then return false end
 		if not PowerbandMax then return false end
@@ -1608,7 +1601,7 @@ if SERVER then
 
 	--- Sets the brakes for an ACF gearbox
 	-- @server
-	-- @param number brake The brake value to set
+	-- @param number brake The brake torque on each wheel, in N·m
 	function ents_methods:acfBrake(brake)
 		CheckType(self, ents_metatable)
 		CheckLuaType(brake, TYPE_NUMBER)
@@ -1625,7 +1618,7 @@ if SERVER then
 
 	--- Sets the left brakes for an ACF gearbox
 	-- @server
-	-- @param number brake The brake value to set
+	-- @param number brake The brake torque on each wheel, in N·m
 	function ents_methods:acfBrakeLeft(brake)
 		CheckType(self, ents_metatable)
 		CheckLuaType(brake, TYPE_NUMBER)
@@ -1642,7 +1635,7 @@ if SERVER then
 
 	--- Sets the right brakes for an ACF gearbox
 	-- @server
-	-- @param number brake The brake value to set
+	-- @param number brake The brake torque on each wheel, in N·m
 	function ents_methods:acfBrakeRight(brake)
 		CheckType(self, ents_metatable)
 		CheckLuaType(brake, TYPE_NUMBER)
@@ -1841,13 +1834,12 @@ if SERVER then
 		if not IsACFEntity(This) then SF.Throw("Entity is not valid", 2) end
 		if RestrictInfo(This) then return 0 end
 		if not This.GetConsumption then return 0 end
-		if not This.Throttle then return 0 end
-		if not This.FlyRPM then return 0 end
 
-		return This:GetConsumption(This.Throttle, This.FlyRPM) * 60
+		return This.FuelUsage or 0 -- What its drivetrain burned this tick, already per minute
 	end
 
-	--- Returns the peak fuel consumption in liters per minute or kilowatts of an engine at powerband max, for the current fuel type the engine is using
+	--- Returns the peak fuel consumption in liters per minute or kilowatts of an engine at peak power, for
+	--- the current fuel type the engine is using
 	-- @server
 	-- @return number The peak fuel consumption
 	function ents_methods:acfPeakFuelUse()
@@ -1857,10 +1849,9 @@ if SERVER then
 
 		if not IsACFEntity(This) then SF.Throw("Entity is not valid", 2) end
 		if RestrictInfo(This) then return 0 end
-		if not This.GetConsumption then return 0 end
-		if not This.LimitRPM then return 0 end
+		if not This.GetPeakConsumption then return 0 end
 
-		return This:GetConsumption(1, This.LimitRPM) * 60
+		return This:GetPeakConsumption() * 60
 	end
 
 	--- returns any wheels linked to This engine/gearbox or child gearboxes

@@ -83,7 +83,7 @@ Classes.DefineClass("ACF.ArmorTypes.LiIon", "ACF.ArmorTypes.BaseArmorType", func
     CLASS.ShortName   = "Li-Ion"
     CLASS.Description = "Provides slight protection. Prone to detonate when penetrated or damaged."
     CLASS.SuppressLoad = true
-    CLASS.Density     = 3.89 -- lua/acf/entities/fuel_types/electric.lua (3.89 kg/L)
+    CLASS.Density     = 2.6 -- lua/acf/entities/fuel_types/electric.lua (2.6 kg/L)
     CLASS.CostMul     = 7.2
     CLASS.HealthMul   = 0.00127551
     CLASS.KineticMul  = 0.3

@@ -13,9 +13,12 @@ ACF.Entities.AutoRegister(2026091001, function(CLASS)
 	MENU_FIELD("Number",  "MinRPM",                {Title = "#acf.menu.fields.acf_gearbox.min_rpm", Min = 1, Max = 9900, Default = 3000, Decimals = 0})
 	MENU_FIELD("Number",  "MaxRPM",                {Title = "#acf.menu.fields.acf_gearbox.max_rpm", Min = 1, Max = 10000, Default = 5000, Decimals = 0})
 	MENU_FIELD("Boolean", "DualClutch",            {Title = "#acf.menu.fields.acf_gearbox.dual_clutch", Default = false})
+	-- Differentials only: 1 open, 0 locked, the default, as every differential drove before this setting
+	MENU_FIELD("Number",  "DiffSlip",              {Title = "#acf.menu.fields.acf_gearbox.diff_slip", Min = 0, Max = 1, Default = 0, Decimals = 2})
 	MENU_FIELD("Boolean", "GearboxRealisticRatio", {Title = "#acf.menu.fields.acf_gearbox.gearbox_realistic_ratio", Default = false})
 	LINKED_ENTITY_ARRAY_FIELD("Wheels")
-	LINKED_ENTITY_ARRAY_FIELD("GearboxOut", {AcceptableClasses = {acf_gearbox = true}})
+	LINKED_ENTITY_ARRAY_FIELD("GearboxOut",
+		{AcceptableClasses = {acf_gearbox = true}, LinkMethod = "LinkOutput"})
 	LINKED_ENTITY_ARRAY_FIELD("Effectors")
 
 	-- Per-gear ratios (1-based) and automatic shift points. The serializer clamps each entry; the entity

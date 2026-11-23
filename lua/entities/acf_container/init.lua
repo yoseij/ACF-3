@@ -57,6 +57,14 @@ function ENT:CanConsume(SelfTbl)
 	return SelfTbl.Amount > 0
 end
 
+--- Whether it has room for what something hands back, such as a motor's regenerative braking.
+function ENT:CanCharge()
+	if not ACF.IsOperational(self) then return false end
+	if not self.Active then return false end
+
+	return self.Amount < self.Capacity
+end
+
 function ENT:UpdateMass(Instant)
 	if Instant then
 		local NewMass = math.max(ACF.MinimumMass, self.Amount * self:GetUnitMass())

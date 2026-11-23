@@ -54,7 +54,7 @@ do	-- NET SURFER 2.0
 			end
 		end
 
-		local Overloaded = net.ReadBool()
+		local Undersized = net.ReadBool()
 
 		local InEnts	= {}
 		local OutLEnts	= {}
@@ -106,7 +106,7 @@ do	-- NET SURFER 2.0
 		Gearbox.Mid		= (OutLPos + OutRPos) / 2
 
 		Gearbox.IsStraight = (OutLPos == OutRPos)
-		Gearbox.Overloaded = Overloaded
+		Gearbox.Undersized = Undersized
 
 		Gearbox.HasData	= true
 		Gearbox.Age		= Clock.CurTime + 5
@@ -138,7 +138,7 @@ do	-- Overlay
 	local innerConnection = Color(127, 127, 127)
 	local outerConnection = Color(255, 255, 255)
 	local bentConnection = Color(255, 200, 0) -- Shaft close to the driveshaft angle limit
-	local overloadedConnection = Color(255, 60, 60) -- Gearbox keeps hitting its torque rating
+	local undersizedConnection = Color(255, 60, 60) -- More torque can reach the gearbox than its rating takes
 
 	function ENT:DrawLinks(Rendered)
 		if Rendered[self] then return end
@@ -154,7 +154,7 @@ do	-- Overlay
 		end
 
 		local Perc = (Clock.CurTime / 2) % 1
-		local Inner = SelfTbl.Overloaded and overloadedConnection or innerConnection
+		local Inner = SelfTbl.Undersized and undersizedConnection or innerConnection
 
 		local InPos		= self:LocalToWorld(SelfTbl.In)
 		local LeftPos	= self:LocalToWorld(SelfTbl.OutL)

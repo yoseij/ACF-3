@@ -9,18 +9,24 @@ local HPColor     = Color(255, 65, 65)
 local TorqueColor = Color(65, 65, 255)
 local IdleColor   = Color(127, 0, 0)
 
-local acf_menu_multiplytorquemult = CreateClientConVar("acf_menu_multiplytorquemult", "0", true, false, "If true, engine power/torque elements in the menu & overlay will be multiplied by the internal torque multiplier.\nIt should be noted that the torque multiplier is a temporary stopgap for internal code issues, and will be removed in a future mobility update.")
-
-local function GetTorqueMult() return acf_menu_multiplytorquemult:GetBool() and ACF.GetServerData("TorqueMult") or 1 end
-
 local function GetEngineType(FQN) return Classes.GetSubtypeByName("ACF.EngineTypes.BaseEngineType", FQN) end
 local function GetFuelType(FQN)   return Classes.GetSubtypeByName("ACF.FuelTypes.FuelType", FQN) end
+
+local function GetFuels(Data)
+	local Fuels = {}
+
+	for FQN in pairs(Data.Fuel) do
+		Fuels[#Fuels + 1] = GetFuelType(FQN)
+	end
+
+	return Fuels
+end
 
 -- A fuel tank copied into the menu keeps its fuel, even one this engine doesn't use
 local function GetFuelChoices(Fuels)
 	local Choices = {}
 
-	for Name, Fuel in pairs(Fuels) do Choices[Name] = Fuel end
+	for _, Fuel in ipairs(Fuels) do Choices[Classes.GetTypeName(Fuel)] = Fuel end
 
 	for _, Type in ipairs(ACF.Menu.PreferredTypes or {}) do
 		local Name = Classes.GetTypeName(Type)
@@ -34,12 +40,12 @@ end
 local function UpdateEngineStats(Label, Data)
 	local RPM        = Data.RPM
 	local PeakTqRPM  = math.Round(Data.PeakTqRPM)
-	local PeakkW     = Data.PeakPower * GetTorqueMult()
+	local PeakkW     = Data.PeakPower
 	local PeakkWRPM  = Data.PeakPowerRPM
 	local Mass       = ACF.FormatMass(Data.Mass or 0)
 	local Cost       = ACF.FormatCost(5 + Data.PeakPower / ACF.EngineKwPerPoint)
-	local Torque     = math.Round(Data.Torque * GetTorqueMult())
-	local TorqueFeet = math.Round(Data.Torque * GetTorqueMult() * ACF.NmToFtLb)
+	local Torque     = math.Round(Data.Torque)
+	local TorqueFeet = math.Round(Data.Torque * ACF.NmToFtLb)
 	local Type       = GetEngineType(Data.Type)
 	local Efficiency = Type.Efficiency
 	local FuelList   = ""
@@ -48,10 +54,7 @@ local function UpdateEngineStats(Label, Data)
 	local PowerText       = language.GetPhrase("acf.menu.engines.power_stats")
 	local ConsumptionText = language.GetPhrase("acf.menu.engines.consumption_stats")
 
-	for K in pairs(Data.Fuel) do
-		local Fuel = GetFuelType(K)
-		if not Fuel then continue end
-
+	for _, Fuel in ipairs(GetFuels(Data)) do
 		local AddText
 		if Fuel.ConsumptionText then
 			AddText = Fuel.ConsumptionText(PeakkW, PeakkWRPM, Efficiency, Type, Fuel)
@@ -61,8 +64,6 @@ local function UpdateEngineStats(Label, Data)
 		end
 
 		FuelList = FuelList .. "\n" .. AddText .. "\n"
-
-		Data.Fuel[K] = Fuel -- TODO: Replace once engines use the proper class functions
 	end
 
 	local Power = PowerText:format(Torque, TorqueFeet, PeakTqRPM, math.Round(PeakkW), math.Round(PeakkW * ACF.KwToHp), PeakkWRPM)
@@ -81,6 +82,8 @@ local function Build(Menu, Contexts)
 
 	local EngineClass = Menu:AddComboBox()
 	local EngineList  = Menu:AddComboBox()
+	-- The chosen layout's own controls: engine type, size, gearing
+	local Options     = Menu:AddPanel("ACF_Panel")
 
 	local EngineBase    = Menu:AddCollapsible("#acf.menu.engines.engine_info", nil, "icon16/monitor_edit.png")
 	local EngineName    = EngineBase:AddTitle()
@@ -147,52 +150,150 @@ local function Build(Menu, Contexts)
 		if IsValid(FuelPreview) then FuelPreview:SetModelScale(TankSize * 12) end
 	end
 
+	-- Everything shown about the engine comes from the sized instance in the context
+	local ShownFuels -- The fuels the fuel combo lists, so it is only rebuilt when they change
+
+	local function Refresh()
+		local Instance = Engine:Get("Engine")
+
+		if not (Instance and Instance.GetStats) then return end
+
+		local Data   = Instance:GetStats()
+		local Family = Classes.GetBaseClass(Instance:GetType())
+
+		EngineName:SetText(Data.Name)
+		EngineDesc:SetText(language.GetPhrase(Family.Description))
+
+		EnginePreview:UpdateModel(Data.Model)
+		EnginePreview:UpdateSettings(Data.Preview)
+		EnginePreview:SetModelScale(Data.Scale, true)
+
+		UpdateEngineStats(EngineStats, Data)
+
+		PowerGraph:SetXRange(0, Data.RPM.Limit)
+		PowerGraph:SetYRange(0, math.max(math.ceil(Data.PeakPower * ACF.KwToHp), Data.Torque) * 1.1)
+		PowerGraph:SetFidelity(10)
+
+		PowerGraph:Clear()
+		PowerGraph:PlotPoint(language.GetPhrase("acf.menu.engines.peak_hp"), Data.PeakPowerRPM,
+			math.Round(Data.PeakPower * ACF.KwToHp), HPColor)
+		PowerGraph:PlotPoint(language.GetPhrase("acf.menu.engines.peak_nm"), Data.PeakTqRPM,
+			math.Round(Data.Torque), TorqueColor)
+
+		PowerGraph:PlotLimitFunction(language.GetPhrase("acf.menu.engines.torque"), Data.RPM.Idle, Data.RPM.Limit, TorqueColor, function(X)
+			local Position = math.Remap(X, Data.RPM.Idle, Data.RPM.Limit, 0, 1)
+
+			return ACF.GetTorque(Data.TorqueCurve, Position) * Data.Torque
+		end)
+
+		PowerGraph:PlotLimitFunction(language.GetPhrase("acf.menu.engines.hp"), Data.RPM.Idle, Data.RPM.Limit, HPColor, function(X)
+			local Position = math.Remap(X, Data.RPM.Idle, Data.RPM.Limit, 0, 1)
+
+			return (ACF.GetTorque(Data.TorqueCurve, Position) * Data.Torque * X) * ACF.KwToHp / 9548.8
+		end)
+
+		PowerGraph:PlotLimitLine(language.GetPhrase("acf.menu.engines.idle_rpm"), false, Data.RPM.Idle, IdleColor)
+
+		local Fuels = GetFuels(Data)
+		local Names = {}
+
+		for I, Fuel in ipairs(Fuels) do Names[I] = Classes.GetTypeName(Fuel) end
+
+		table.sort(Names)
+
+		local Key = table.concat(Names, ",")
+
+		if Key ~= ShownFuels then
+			ShownFuels = Key
+
+			ACF.Menu.LoadClassCombo(FuelType, GetFuelChoices(Fuels), "ID", nil, PAGE, "fuel")
+		end
+	end
+
+	Engine:OnChange("acf_engine_menu", "Engine", Refresh)
+
+	local Bound -- The instance the layout's controls edit
+
+	-- The layout's controls: what it burns, how big it is, and for a turbine whether its output is geared
+	-- down
+	local function BuildOptions(Layout)
+		Options:ClearAll()
+
+		local Sub = ACF.Menu.SubContext(Engine, "Engine")
+
+		if not Sub then return end
+
+		Bound = Sub.Instance
+
+		local Types = {}
+
+		for I, FQN in ipairs(Layout.EngineTypes) do
+			Types[I] = GetType(FQN)
+		end
+
+		-- A family that burns one thing has nothing to choose; VerifyData has already given it that type
+		if #Types > 1 then
+			local TypeCombo = Options:AddComboBox()
+
+			function TypeCombo:OnSelect(Index, _, Data)
+				if self.Selected == Data then return end
+				self.ListData.Index = Index
+				self.Selected = Data
+				ACF.Menu.SaveClassCombo(PAGE, "enginetype", Data)
+
+				Sub:Set("EngineType", Data())
+			end
+
+			ACF.Menu.LoadClassCombo(TypeCombo, Types, "Name", nil, PAGE, "enginetype")
+		end
+
+		for _, Field in ipairs({ "Displacement", "Power", "Geared" }) do
+			if Classes.GetTypeFieldByName(Layout, Field) then
+				ACF.Menu.AddField(Options, Sub, Field, { Title = "#acf.menu.engines." .. Field:lower() })
+			end
+		end
+
+		Options:InvalidateParent()
+	end
+
+	-- Picking a layout, a copy or a preset all put a new instance in the context, which the controls must
+	-- follow
+	Engine:OnChange("acf_engine_menu_options", "Engine", function()
+		local Instance = Engine:Get("Engine")
+
+		if Instance and Instance.GetType and Instance ~= Bound then BuildOptions(Instance:GetType()) end
+	end)
+
 	function EngineClass:OnSelect(Index, _, Data)
 		if self.Selected == Data then return end
 		self.ListData.Index = Index
 		self.Selected = Data
 		ACF.Menu.SaveClassCombo(PAGE, "group", Data)
 
-		ACF.Menu.LoadClassCombo(EngineList, Classes.GetChildren(Data), "Mass", nil, PAGE, "engine")
+		ACF.Menu.LoadClassCombo(EngineList, Classes.GetChildren(Data), "Order", nil, PAGE, "engine")
 	end
 
-	function EngineList:OnSelect(Index, _, Data)
-		if self.Selected == Data then return end
+	function EngineList:OnSelect(Index, _, Layout)
+		if self.Selected == Layout then return end
 		self.ListData.Index = Index
-		self.Selected = Data
-		ACF.Menu.SaveClassCombo(PAGE, "engine", Data)
+		self.Selected = Layout
+		ACF.Menu.SaveClassCombo(PAGE, "engine", Layout)
 
-		local ClassDesc = EngineClass.Selected and EngineClass.Selected.Description
+		local Current  = Engine:Get("Engine")
+		local Instance = Layout()
 
-		Engine:Set("Engine", Classes.GetTypeName(Data))
+		-- Size and type carry over between layouts where they fit; VerifyData settles what doesn't
+		if Current and Current.GetType then
+			for _, Field in ipairs(Classes.GetTypeFields(Layout)) do
+				local Value = rawget(Current, Field.Name)
 
-		EngineName:SetText(Data.Name)
-		EngineDesc:SetText((ClassDesc and (language.GetPhrase(ClassDesc) .. "\n\n") or "") .. language.GetPhrase(Data.Description))
+				if Value ~= nil then Instance[Field.Name] = Value end
+			end
+		end
 
-		EnginePreview:UpdateModel(Data.Model)
-		EnginePreview:UpdateSettings(Data.Preview)
+		Instance:VerifyData()
 
-		UpdateEngineStats(EngineStats, Data)
-
-		PowerGraph:SetXRange(0, Data.RPM.Limit)
-		PowerGraph:SetYRange(0, math.max(math.ceil(Data.PeakPower * GetTorqueMult() * ACF.KwToHp), Data.Torque * GetTorqueMult()) * 1.1)
-		PowerGraph:SetFidelity(10)
-
-		PowerGraph:Clear()
-		PowerGraph:PlotPoint(language.GetPhrase("acf.menu.engines.peak_hp"), Data.PeakPowerRPM, math.Round(Data.PeakPower * GetTorqueMult() * ACF.KwToHp), HPColor)
-		PowerGraph:PlotPoint(language.GetPhrase("acf.menu.engines.peak_nm"), Data.PeakTqRPM, math.Round(Data.Torque * GetTorqueMult()), TorqueColor)
-
-		PowerGraph:PlotLimitFunction(language.GetPhrase("acf.menu.engines.torque"), Data.RPM.Idle, Data.RPM.Limit, TorqueColor, function(X)
-			return ACF.GetTorque(Data.TorqueCurve, math.Remap(X, Data.RPM.Idle, Data.RPM.Limit, 0, 1)) * Data.Torque * GetTorqueMult()
-		end)
-
-		PowerGraph:PlotLimitFunction(language.GetPhrase("acf.menu.engines.hp"), Data.RPM.Idle, Data.RPM.Limit, HPColor, function(X)
-			return (ACF.GetTorque(Data.TorqueCurve, math.Remap(X, Data.RPM.Idle, Data.RPM.Limit, 0, 1)) * Data.Torque * GetTorqueMult() * X) * ACF.KwToHp / 9548.8
-		end)
-
-		PowerGraph:PlotLimitLine(language.GetPhrase("acf.menu.engines.idle_rpm"), false, Data.RPM.Idle, IdleColor)
-
-		ACF.Menu.LoadClassCombo(FuelType, GetFuelChoices(Data.Fuel), "ID", nil, PAGE, "fuel")
+		Engine:Set("Engine", Instance) -- Which refreshes the page
 	end
 
 	function FuelType:OnSelect(Index, _, Data)

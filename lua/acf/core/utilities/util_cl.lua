@@ -243,6 +243,21 @@ do -- Default gearbox menus
 		end
 	end
 
+	do -- Differential Gearbox Menu
+		function ACF.DifferentialGearboxMenu(Class, Data, Menu, Ctx, UseRealisticRatios)
+			ACF.ManualGearboxMenu(Class, Data, Menu, Ctx, UseRealisticRatios)
+
+			local DiffSlip = Menu:AddSlider("#acf.menu.gearboxes.diff_slip", 0, 1, 2)
+
+			function DiffSlip:OnValueChanged(Value)
+				Ctx:Set("DiffSlip", math.Round(Value, 2))
+			end
+
+			Menu:AddHelp("#acf.menu.gearboxes.diff_slip_desc")
+			DiffSlip:SetValue(Ctx:Get("DiffSlip") or 0)
+		end
+	end
+
 	do -- CVT Gearbox Menu
 		local CVTData = {
 			{

@@ -6,6 +6,7 @@ include("shared.lua")
 local ACF         = ACF
 local Mobility    = ACF.Mobility
 local MobilityObj = Mobility.Objects
+local Drivetrain  = Mobility.Drivetrain
 local Sounds      = ACF.Utilities.Sounds
 
 local function GenerateLinkTable(Entity, Target)
@@ -79,6 +80,8 @@ ACF.RegisterClassLink("acf_waterjet", "acf_gearbox", function(This, Gearbox)
 	Gearbox:ACF_GetUserVar("Effectors")[This] = Link
 	This.Gearboxes[Gearbox] = Link
 
+	Drivetrain.Invalidate(Gearbox)
+
 	Gearbox:UpdateLinkHints()
 	Gearbox:InvalidateClientInfo()
 
@@ -90,6 +93,8 @@ ACF.RegisterClassUnlink("acf_waterjet", "acf_gearbox", function(This, Gearbox)
 
 	Gearbox:ACF_GetUserVar("Effectors")[This] = nil
 	This.Gearboxes[Gearbox] = nil
+
+	Drivetrain.Invalidate(Gearbox)
 
 	Gearbox:UpdateLinkHints()
 

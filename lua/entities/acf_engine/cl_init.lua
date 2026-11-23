@@ -5,7 +5,11 @@ local Queued	= {}
 include("shared.lua")
 
 function ENT:Update()
-	self.HitBoxes = ACF.GetHitboxes(self:GetModel())
+	self.HitBoxes = ACF.GetHitboxes(self:GetModel(), self:GetScale())
+end
+
+function ENT:OnResized(_, Scale)
+	self.HitBoxes = ACF.GetHitboxes(self:GetModel(), Scale)
 end
 
 do	-- NET SURFER 2.0
@@ -25,13 +29,11 @@ do	-- NET SURFER 2.0
 		local Driveshaft	= net.ReadVector()
 		local Outputs		= {}
 		local Fuel			= {}
-		local OutputLen		= net.ReadUInt(6)
+		local OutputLen		= net.ReadUInt(8)
 		local FuelLen		= net.ReadUInt(6)
 
-		if OutputLen > 0 then
-			for I = 1, OutputLen do
-				Outputs[I] = net.ReadUInt(MAX_EDICT_BITS)
-			end
+		for I = 1, OutputLen do
+			Outputs[I] = { Index = net.ReadUInt(MAX_EDICT_BITS), Pos = net.ReadVector() }
 		end
 
 		if FuelLen > 0 then
@@ -43,13 +45,11 @@ do	-- NET SURFER 2.0
 		local OutEnts	= {}
 		local FuelTanks	= {}
 
-		for _, E in ipairs(Outputs) do
-			local Ent = Entity(E)
+		for _, Output in ipairs(Outputs) do
+			local Ent = Entity(Output.Index)
 
 			if IsValid(Ent) then
-				local Pos = Ent:WorldToLocal(Ent:GetAttachment(Ent:LookupAttachment("input")).Pos)
-
-				OutEnts[#OutEnts + 1] = {Ent = Ent, Pos = Pos}
+				OutEnts[#OutEnts + 1] = {Ent = Ent, Pos = Output.Pos}
 			end
 		end
 

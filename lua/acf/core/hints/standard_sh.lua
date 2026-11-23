@@ -127,12 +127,37 @@ do -- MARK: Mobility hints
 		Ponder = "acf.tankbasics.drivetrain",
 	})
 
-	Register("gearbox_overloaded", {
-		Title  = "Overloaded",
-		Detail = function(Data)
-			return "The load exceeds this gearbox's " .. (Data.Rating or "?") .. " Nm rating " .. (Data.Percent or "?") .. "% of the time, capping delivery."
-		end,
-		Help   = "Torque past the limit is lost, so increase the gearbox scale, use fewer gears or split the load between more gearboxes.",
+	local function SizingReceived(Data)
+		return "Receives " .. (Data.Most or "?") .. " Nm, or " .. (Data.Percent or "?") .. "% of its "
+			.. (Data.Rating or "?") .. " Nm rating."
+	end
+
+	local function SizingDetail(Data)
+		return SizingReceived(Data) .. " Scale " .. (Data.Scale or "?") .. " is sufficient."
+	end
+
+	Register("gearbox_undersized", {
+		Title  = "Undersized",
+		Detail = SizingDetail,
+		Help   = "This gearbox needs to be bigger to handle the torque from the engines or gearboxes before " ..
+			"it.",
+		Ponder = "acf.tankbasics.drivetrain",
+	})
+
+	-- No scale is sufficient here, so the detail leaves the scale out
+	Register("gearbox_undersized_max", {
+		Title  = "Undersized",
+		Detail = SizingReceived,
+		Help   = "This gearbox is as big as possible, and still can't handle the torque from the engines or " ..
+			"gearboxes before it. Split this gearbox into multiple gearboxes.",
+		Ponder = "acf.tankbasics.drivetrain",
+	})
+
+	Register("gearbox_oversized", {
+		Title  = "Oversized",
+		Detail = SizingDetail,
+		Help   = "This gearbox is much bigger than it needs to be to handle the torque from the engines or " ..
+			"gearboxes before it.",
 		Ponder = "acf.tankbasics.drivetrain",
 	})
 

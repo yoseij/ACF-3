@@ -3,13 +3,32 @@ local Classes   = ACF.Classes
 
 local Gear1SW = 10
 
+local function InitGearbox(Gearbox)
+	local Lock = Gearbox.Inputs and Gearbox.Inputs.Lock
+
+	-- A reconfigure doesn't fire the Lock input again, and one coming from another gearbox type starts
+	-- unwired at 0
+	Gearbox.DiffSlip   = Gearbox:ACF_GetUserVar("DiffSlip")
+	Gearbox.DiffLocked = Lock and Lock.Value ~= 0 or false
+end
+
 Classes.DefineClass("ACF.Gearboxes.Differential", "ACF.Gearboxes.BaseGearbox", function(CLASS)
 	CLASS.Name			= "Differential"
-	CLASS.CreateMenu	= ACF.ManualGearboxMenu
+	CLASS.CreateMenu	= ACF.DifferentialGearboxMenu
+	CLASS.DrivetrainAdapter = "Differential"
 	CLASS.Gears = {
 		Min	= 0,
 		Max	= 1,
 	}
+	CLASS.OnSpawn = InitGearbox
+	CLASS.OnUpdate = InitGearbox
+	CLASS.SetupInputs = function(_, List)
+		List[#List + 1] = "Lock (Locks both sides together while nonzero, whatever the slip is set to.)"
+	end
+	CLASS.OnLast = function(Gearbox)
+		Gearbox.DiffSlip     = nil
+		Gearbox.DiffSlipping = nil
+	end
 end)
 
 do -- Scalable Gearboxes

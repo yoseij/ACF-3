@@ -243,9 +243,7 @@ local function LinkEntities(Player, Target)
 	end
 
 	-- Here and not in the gearbox's unlink, since a gearbox reconfigure unlinks and relinks its wheels
-	for Wheel in pairs(Unlinked or {}) do
-		if Wheel.ACF_TorqueAxis and not next(Wheel.ACF_Gearboxes or {}) then ACF.SetWheelTorqueAxis(Wheel, nil) end
-	end
+	for Wheel in pairs(Unlinked or {}) do ACF.ReleaseWheelTorqueAxis(Wheel) end
 
 	if Done > 0 then
 		local Suffix = ""

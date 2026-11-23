@@ -1,3 +1,5 @@
+jit.off(true, true) -- Short loops once a tick, where recording traces costs more than it saves
+
 AddCSLuaFile("cl_init.lua")
 AddCSLuaFile("shared.lua")
 
@@ -6,80 +8,188 @@ include("shared.lua")
 local ACF = ACF
 local Mobility    = ACF.Mobility
 local MobilityObj = Mobility.Objects
+local Drivetrain  = Mobility.Drivetrain
 local MaxDistance = ACF.MobilityLinkDistance * ACF.MobilityLinkDistance
 
 local ENTITY 			= FindMetaTable("Entity")
-local PHYSOBJ			= FindMetaTable("PhysObj")
 
 local IsEntityValid		= ACF.Optimizations.IsEntityValid
-local IsPhysObjValid	= ACF.Optimizations.IsPhysObjValid
 
 --===============================================================================================--
 -- Engine class setup
 --===============================================================================================--
-do
-	ACF.RegisterClassLink("acf_engine", "acf_gearbox", function(Engine, Target)
-		if Engine:ACF_GetUserVar("Gearboxes")[Target] then return false, "This engine is already linked to this gearbox." end
-		if Engine:GetPos():DistToSqr(Target:GetPos()) > MaxDistance then
-			Mobility.LinkFailure.Distance(Engine, Target)
+do -- MARK: Linking
+	local function TooFar(Engine, Target)
+		if Engine:GetPos():DistToSqr(Target:GetPos()) <= MaxDistance then return false end
 
-			return false, "This gearbox is too far away from this engine!"
-		end
+		Mobility.LinkFailure.Distance(Engine, Target)
 
-		-- make sure the angle is not excessive
-		local InPos = Target:LocalToWorld(Target.In.Pos)
-		local OutPos = Engine:LocalToWorld(Engine.Out.Pos)
-		local Excessive, Angle = ACF.IsDriveshaftAngleExcessive(Target, Target.In, Engine, Engine.Out)
+		return true
+	end
 
-		if Excessive then
-			Mobility.LinkFailure.Angle(Engine, Engine.Out, Target, Target.In, Angle)
+	-- Plane is where the shaft meets the target, nil for a wheel's hub
+	local function IsBent(Engine, Target, Plane)
+		local Excessive, Angle = ACF.IsDriveshaftAngleExcessive(Target, Plane, Engine, Engine.Out)
 
-			return false, "Cannot link due to excessive driveshaft angle! (" .. math.Round(Angle) .. " deg)"
-		end
+		if not Excessive then return false end
 
+		Mobility.LinkFailure.Angle(Engine, Engine.Out, Target, Plane, Angle)
+
+		return true, "Cannot link due to excessive driveshaft angle! (" .. math.Round(Angle) .. " deg)"
+	end
+
+	local function NewLink(Engine, Target, TargetPos)
 		local Link = MobilityObj.Link(Engine, Target)
 
-		Link:SetOrigin(Engine.Out)
-		Link:SetTargetPos(Target.In)
+		Link:SetOrigin(Engine.Out.Pos)
+		Link:SetTargetPos(TargetPos)
 
-		Link.RopeLen = (OutPos - InPos):Length()
+		Link.RopeLen = Engine:LocalToWorld(Engine.Out.Pos):Distance(Target:LocalToWorld(TargetPos))
 
-		Engine:ACF_GetUserVar("Gearboxes")[Target] = Link
-		Target.Engines[Engine]   = true
+		return Link
+	end
 
-		Mobility.BrokenLinks.Clear(Engine, Target)
+	local function Refresh(Engine, Target)
+		Drivetrain.Invalidate(Engine, Target)
 
 		Engine:UpdateLinkHints()
-		Target:UpdateLinkHints()
 		Engine:UpdateOverlay()
-		Target:UpdateOverlay()
-
 		Engine:InvalidateClientInfo()
+
+		if Target.IsACFEntity then
+			Target:UpdateLinkHints()
+			Target:UpdateOverlay()
+			Target:InvalidateClientInfo()
+		end
+	end
+
+	-- Always into its input, whichever was picked first
+	local function LinkGearbox(Engine, Gearbox)
+		local Gearboxes = Engine:ACF_GetUserVar("Gearboxes")
+
+		if Gearboxes[Gearbox] then return false, "This engine is already linked to this gearbox." end
+		if TooFar(Engine, Gearbox) then return false, "This gearbox is too far away from this engine!" end
+
+		local Bent, Message = IsBent(Engine, Gearbox, Gearbox.In)
+
+		if Bent then return false, Message end
+
+		Gearboxes[Gearbox]      = NewLink(Engine, Gearbox, Gearbox.In.Pos)
+		Gearbox.Engines[Engine] = true
+
+		Mobility.BrokenLinks.Clear(Engine, Gearbox)
+		Refresh(Engine, Gearbox)
 
 		return true, "Engine linked successfully!"
-	end)
+	end
 
-	ACF.RegisterClassUnlink("acf_engine", "acf_gearbox", function(Engine, Target)
-		if not Engine:ACF_GetUserVar("Gearboxes")[Target] then
-			return false, "This engine is not linked to this gearbox."
-		end
+	-- Two cranks joined end to end turn as one shaft, without a gearbox between them
+	local function LinkCrank(Engine, Other)
+		local Cranks = Engine:ACF_GetUserVar("Cranks")
 
-		local Rope = Engine:ACF_GetUserVar("Gearboxes")[Target].Rope
+		if Cranks[Other] then return false, "These engines are already linked to each other." end
+		if TooFar(Engine, Other) then return false, "These engines are too far away from each other!" end
 
-		if IsValid(Rope) then Rope:Remove() end
+		local Bent, Message = IsBent(Engine, Other, Other.Out)
 
-		Engine:ACF_GetUserVar("Gearboxes")[Target] = nil
-		Target.Engines[Engine]	 = nil
+		if Bent then return false, Message end
 
-		Engine:UpdateLinkHints()
-		Target:UpdateLinkHints()
-		Engine:UpdateOverlay()
-		Target:UpdateOverlay()
+		local Link = NewLink(Engine, Other, Other.Out.Pos)
 
-		Engine:InvalidateClientInfo()
+		Cranks[Other] = Link
+		Other:ACF_GetUserVar("Cranks")[Engine] = Link
+
+		Mobility.BrokenLinks.Clear(Engine, Other)
+		Mobility.BrokenLinks.Clear(Other, Engine) -- Either engine's check may have broken it before
+		Refresh(Engine, Other)
+
+		return true, "Engines linked, their cranks turn as one."
+	end
+
+	-- A wheel on its crank turns with it, as a hub motor's does
+	local function LinkWheel(Engine, Wheel)
+		local Wheels = Engine:ACF_GetUserVar("Wheels")
+
+		if Wheels[Wheel] then return false, "This wheel is already linked to this engine!" end
+		if TooFar(Engine, Wheel) then return false, "This wheel is too far away from this engine!" end
+
+		local Bent, Message = IsBent(Engine, Wheel)
+
+		if Bent then return false, Message end
+
+		local Link = NewLink(Engine, Wheel, Vector())
+
+		Link.Side = 0
+
+		Wheels[Wheel] = Link
+
+		if not Wheel.ACF_Engines then Wheel.ACF_Engines = {} end
+		Wheel.ACF_Engines[Engine] = Link
+
+		Wheel:CallOnRemove("ACF_EngineUnlink" .. Engine:EntIndex(), function()
+			if IsEntityValid(Engine) then Engine:Unlink(Wheel) end
+		end)
+
+		Mobility.BrokenLinks.Clear(Engine, Wheel)
+		ACF.UpdateWheelAxes(Wheel)
+		Refresh(Engine, Wheel)
+
+		return true, "Wheel linked successfully!"
+	end
+
+	ACF.RegisterClassLink("acf_engine", "acf_gearbox", LinkGearbox)
+
+	ACF.RegisterClassLink("acf_engine", "acf_engine", LinkCrank)
+	ACF.RegisterClassLink("acf_engine", "prop_physics", LinkWheel)
+	ACF.RegisterClassLink("acf_engine", "tire", LinkWheel)
+
+	ACF.RegisterClassUnlink("acf_engine", "acf_gearbox", function(Engine, Gearbox)
+		local Gearboxes = Engine:ACF_GetUserVar("Gearboxes")
+		local Link      = Gearboxes[Gearbox]
+
+		if not Link then return false, "This engine is not linked to this gearbox." end
+
+		Gearboxes[Gearbox]      = nil
+		Gearbox.Engines[Engine] = nil
+
+		Refresh(Engine, Gearbox)
 
 		return true, "Engine unlinked successfully!"
 	end)
+
+	ACF.RegisterClassUnlink("acf_engine", "acf_engine", function(Engine, Other)
+		local Cranks = Engine:ACF_GetUserVar("Cranks")
+		local Link   = Cranks[Other]
+
+		if not Link then return false, "These engines are not linked to each other." end
+
+		Cranks[Other] = nil
+		Other:ACF_GetUserVar("Cranks")[Engine] = nil
+
+		Refresh(Engine, Other)
+
+		return true, "Engines unlinked successfully!"
+	end)
+
+	local function UnlinkWheel(Engine, Wheel)
+		local Wheels = Engine:ACF_GetUserVar("Wheels")
+		local Link   = Wheels[Wheel]
+
+		if Wheel.ACF_Engines then Wheel.ACF_Engines[Engine] = nil end
+		if not Link then return false, "This wheel is not linked to this engine!" end
+
+		Wheels[Wheel] = nil
+
+		Wheel:RemoveCallOnRemove("ACF_EngineUnlink" .. Engine:EntIndex())
+
+		ACF.UpdateWheelAxes(Wheel)
+		Refresh(Engine, Wheel)
+
+		return true, "Wheel unlinked successfully!"
+	end
+
+	ACF.RegisterClassUnlink("acf_engine", "prop_physics", UnlinkWheel)
+	ACF.RegisterClassUnlink("acf_engine", "tire", UnlinkWheel)
 end
 
 --===============================================================================================--
@@ -94,25 +204,20 @@ local Contraption  = ACF.Contraption
 local Fuel         = Mobility.Fuel
 local BrokenLinks  = Mobility.BrokenLinks
 local Notify       = Utilities.Notify
-local IsValid      = IsValid
 local Clamp        = math.Clamp
 local Round        = math.Round
-local Remap        = math.Remap
+local abs          = math.abs
 local max          = math.max
 local min          = math.min
 local TimerCreate  = timer.Create
 local TimerRemove  = timer.Remove
 local TickInterval = engine.TickInterval
 
-local function GetPitchVolume(Engine)
-	local RPM = Engine.FlyRPM
-	local Pitch = Clamp(20 + (RPM * Engine.SoundPitch) * 0.02, 1, 255)
-	-- Rev limiter code disabled because it has issues with the volume delta time, but it's still here if we need it
-	local Throttle = Engine.Throttle -- Engine.RevLimited and 0 or Engine.Throttle
-	local Volume = 0.25 + (0.1 + 0.9 * ((RPM / Engine.LimitRPM) ^ 1.5)) * Throttle * 0.666
-
-	return Pitch, Volume * Engine.SoundVolume
-end
+local MAX_BRAKE    = 1e6 -- N·m on each wheel, as on a gearbox
+-- s it takes to fall silent, as a stalled or switched off engine runs down rather than cutting out
+local SOUND_FADE   = 0.4
+-- Volume change worth sending on its own, as at a steady speed only the load changes it
+local VOLUME_DELTA = 0.02
 
 -- Only called when the cached tank is unusable, so a linear scan over the (small) sibling set is fine
 local function FindFuelTank(EngineTbl)
@@ -123,7 +228,7 @@ local function FindFuelTank(EngineTbl)
 		local TankTbl  = ENTITY.GetTable(Tank)
 		local Priority = TankTbl.FuelPriority
 
-		if (not Best or Priority < BestPriority) and TankTbl.CanConsume(Tank) then
+		if (not Best or Priority < BestPriority) and TankTbl.CanConsume(Tank, TankTbl) then
 			Best, BestPriority = Tank, Priority
 
 			if Priority <= MinPriority then break end
@@ -133,30 +238,40 @@ local function FindFuelTank(EngineTbl)
 	return Best
 end
 
-local function BreakLink(Engine, Gearbox, Reason)
-	Engine:Unlink(Gearbox)
-	BrokenLinks.Add(Engine, Gearbox, Reason, Engine.Out.Pos, Gearbox.In.Pos)
-	Notify.EntityWarning(Engine, "Engine to Gearbox connection broken", Reason .. "!", ACF.Diagnostics.Get("link_broken").Ponder)
+local function BreakLink(Engine, Target, Reason, TargetPos)
+	Engine:Unlink(Target)
+	BrokenLinks.Add(Engine, Target, Reason, Engine.Out.Pos, TargetPos)
+	Notify.EntityWarning(Engine, "Engine connection broken", Reason .. "!",
+		ACF.Diagnostics.Get("link_broken").Ponder)
 end
 
-local function CheckGearboxes(Engine)
-	for Ent, Link in pairs(Engine:ACF_GetUserVar("Gearboxes")) do
-		local OutPos = Engine:LocalToWorld(Engine.Out.Pos)
-		local InPos = Ent:LocalToWorld(Ent.In.Pos)
+-- Plane is where the shaft meets the target, nil for a wheel's hub; TargetPos is local to the target
+local function CheckLink(Engine, Target, Link, Plane, TargetPos)
+	local OutPos = Engine:LocalToWorld(Engine.Out.Pos)
+	local InPos  = Target:LocalToWorld(TargetPos)
 
-		-- make sure it is not stretched too far
-		if OutPos:Distance(InPos) > Link.RopeLen * 1.5 then
-			BreakLink(Engine, Ent, "Excessive distance")
-			continue
-		end
+	if OutPos:Distance(InPos) > Link.RopeLen * 1.5 then
+		return BreakLink(Engine, Target, "Excessive distance", TargetPos)
+	end
 
-		local Excessive, Angle = ACF.IsDriveshaftAngleExcessive(Ent, Ent.In, Engine, Engine.Out)
+	local Excessive, Angle = ACF.IsDriveshaftAngleExcessive(Target, Plane, Engine, Engine.Out)
 
-		if Excessive then
-			BreakLink(Engine, Ent, "Excessive driveshaft angle (" .. Round(Angle) .. " of " .. ACF.MaxDriveshaftAngle .. " deg)")
-		end
+	if Excessive then
+		local Reason = "Excessive driveshaft angle (" .. Round(Angle) .. " of " .. ACF.MaxDriveshaftAngle .. " deg)"
+
+		BreakLink(Engine, Target, Reason, TargetPos)
 	end
 end
+
+local function CheckLinks(Engine)
+	local Live = Engine.ACF_LiveData
+
+	for Ent, Link in pairs(Live.Gearboxes) do CheckLink(Engine, Ent, Link, Ent.In, Link:GetTargetPos()) end
+	-- Both engines share the link, which points at one crank only
+	for Ent, Link in pairs(Live.Cranks) do CheckLink(Engine, Ent, Link, Ent.Out, Ent.Out.Pos) end
+	for Ent, Link in pairs(Live.Wheels) do CheckLink(Engine, Ent, Link, nil, Link:GetTargetPos()) end
+end
+
 
 local function SetActive(Entity, Value, EntTbl)
 	EntTbl = EntTbl or Entity:GetTable()
@@ -167,36 +282,33 @@ local function SetActive(Entity, Value, EntTbl)
 	if ActBool and EntTbl.Disabled then return end -- Can't activate a disabled engine
 
 	if ActBool then -- Was off, turn on
-		EntTbl.Active = true
+		EntTbl.Active       = true
+		EntTbl.Cranking     = true -- Its drivetrain turns it over until it fires
+		EntTbl.StarterClock = 0
 
-		Entity:CalcMassRatio(EntTbl)
-
-		EntTbl.LastThink = Clock.CurTime
-		EntTbl.Torque    = EntTbl.PeakTorque
-		EntTbl.FlyRPM    = EntTbl.IdleRPM * 1.5
-
-		Entity:UpdateSound(EntTbl)
+		Entity:CalcMassRatio()
+		Mobility.Driver.Update(Entity, next(EntTbl.ACF_LiveData.Wheels))
 
 		Entity:NextThink(Clock.CurTime + TickInterval())
 
 		TimerCreate("ACF Engine Clock " .. Entity:EntIndex(), 3, 0, function()
 			if not IsEntityValid(Entity) then return end
 
-			CheckGearboxes(Entity)
+			CheckLinks(Entity)
+			Mobility.Driver.Update(Entity, next(Entity.ACF_LiveData.Wheels))
 
-			Entity:CalcMassRatio(EntTbl)
+			Contraption.UpdateMassRatio(Entity)
 		end)
 	else -- Was on, turn off
-		EntTbl.Active = false
-		EntTbl.FlyRPM = 0
-		EntTbl.Torque = 0
-
-		Entity:DestroySound()
+		EntTbl.Active   = false
+		EntTbl.Firing   = false
+		EntTbl.Cranking = false
+		EntTbl.Torque   = 0
 
 		TimerRemove("ACF Engine Clock " .. Entity:EntIndex())
 	end
 
-	Entity:UpdateOverlay()
+	Entity:UpdateOverlay(true) -- Past the overlay's cooldown, which would keep showing the state it just left
 	Entity:UpdateOutputs(EntTbl)
 end
 
@@ -205,32 +317,30 @@ end
 do -- Spawn and Update functions
 	local Classes = ACF.Classes
 
-	-- Engine/engine-type classes are identified by FQN; derive the legacy short id for display by
-	-- stripping the namespace prefix (FQNs like "ACF.Engines.5.7-V8" contain dots, so a plain split
-	-- on "." won't work).
-	local function ShortName(Class, Prefix)
-		local Name = Classes.GetTypeName(Class):gsub("^" .. Prefix, "")
-		return Name
-	end
+	-- kg·m² per unit of FlywheelMass, revs as fast as the old per-tick flywheel did at 66.67 tick
+	local FLYWHEEL_INERTIA = 0.45 * math.pi
 
+	--- @param Engine table The stats of a sized engine instance
 	local function UpdateEngine(Entity, Engine)
-		local EngineClass = Engine:GetType()
-		local Group       = Classes.GetBaseClass(EngineClass)
-		local Type        = Classes.GetSubtypeByName("ACF.EngineTypes.BaseEngineType", Engine.Type)
-			or Classes.GetTypeByName("ACF.EngineTypes.GenericPetrol")
-		local Mass        = Engine.Mass
+		local Layout = Classes.GetTypeByName(Engine.Layout)
+		local Family = Classes.GetBaseClass(Layout)
+		local Type   = Engine.EngineType
+		local Mass   = Engine.Mass
 
 		Entity.ACF = Entity.ACF or {}
+		Entity.ACF.Model = Engine.Model
 
-		Contraption.SetModel(Entity, Engine.Model)
-
-		Entity:PhysicsInit(SOLID_VPHYSICS)
-		Entity:SetMoveType(MOVETYPE_VPHYSICS)
+		Entity:SetScaledModel(Engine.Model)
+		Entity:SetScale(Engine.Scale)
 
 		Entity.Name             = Engine.Name
-		Entity.ShortName        = ShortName(EngineClass, "ACF%.Engines%.")
-		Entity.EntType          = Group and Group.Name or Engine.Name
-		Entity.ClassData        = Group
+		Entity.ShortName        = Engine.Name
+		Entity.EntType          = Family.Name
+		Entity.ClassData        = Family
+		Entity.Layout           = Engine.Layout
+		Entity.Displacement     = Engine.Displacement
+		Entity.Power            = Engine.Power
+		Entity.Geared           = Engine.Geared
 		Entity.DefaultSound     = Engine.Sound
 		Entity.SoundPitch       = Engine.Pitch or 1
 		Entity.SoundVolume      = Engine.SoundVolume or 1
@@ -243,26 +353,38 @@ do -- Spawn and Update functions
 		Entity.PeakMinRPM       = Engine.RPM.PeakMin
 		Entity.PeakMaxRPM       = Engine.RPM.PeakMax
 		Entity.LimitRPM         = Engine.RPM.Limit
+		Entity.GovernorDroop    = Engine.EngineType.GovernorDroop
 		Entity.PeakTqRPM        = Engine.PeakTqRPM
 		Entity.RevLimited       = false
-		Entity.FlywheelOverride = Engine.RPM.Override
 		Entity.FlywheelMass     = Engine.FlywheelMass
-		Entity.Inertia          = Engine.FlywheelMass * math.pi ^ 2
+		Entity.Inertia          = Engine.FlywheelMass * FLYWHEEL_INERTIA
 		Entity.IsElectric       = Engine.IsElectric
 		Entity.IsTrans          = Engine.IsTrans -- driveshaft outputs to the side
-		Entity.FuelTypes        = Engine.Fuel or { ["ACF.FuelTypes.Petrol"] = true }
+		Entity.FuelTypes        = Engine.Fuel
 		Entity.FuelType         = next(Engine.Fuel)
-		Entity.EngineType       = ShortName(Type, "ACF%.EngineTypes%.")
+		Entity.EngineType       = Classes.FullyQualifiedNameToUnqualifiedName(Engine.Type)
 		Entity.Efficiency       = Type.Efficiency
 		Entity.TorqueScale      = Type.TorqueScale
 		Entity.HealthMult       = Type.HealthMult
-		Entity.HitBoxes         = ACF.GetHitboxes(Engine.Model)
-		Entity.Out              = ACF.LocalPlane(Entity:WorldToLocal(Entity:GetAttachment(Entity:LookupAttachment("driveshaft")).Pos), Engine.IsTrans and Vector(0, 1, 0) or Vector(1, 0, 0))
+		Entity.TypeData         = Type
+		Entity.DrivetrainAdapter = Type.DrivetrainAdapter
+		Entity.StartingLabel    = Type.StartingLabel
+		Entity.MinThrottle      = Type.MinThrottle
+		-- A motor swapped for an engine can't keep running backwards
+		Entity.Throttle         = math.max(Entity.Throttle, Type.MinThrottle * 0.01)
+		Entity.LossConstant, Entity.LossLinear, Entity.LossQuadratic = Type:GetLosses(Engine)
+		Entity.HitBoxes         = ACF.GetHitboxes(Engine.Model, Engine.Scale)
+
+		-- A model's own attachments don't scale with it
+		local Attachment = Entity:GetAttachment(Entity:LookupAttachment("driveshaft"))
+		local Driveshaft  = Entity:WorldToLocal(Attachment.Pos) * Engine.Scale
+
+		Entity.Out              = ACF.LocalPlane(Driveshaft,
+			Engine.IsTrans and Vector(0, 1, 0) or Vector(1, 0, 0))
 
 		if Engine.IsTrans then
 			Entity.Out = ACF.LocalPlane(vector_origin, Vector(0, 1, 0))
 		end
-		Entity.IsSpecial        = Engine.IsSpecial
 		Entity.SoundPath        = Entity.SoundPath or Engine.Sound
 
 		Entity:ACF_SetEntityName("ACF " .. Entity.Name)
@@ -274,6 +396,8 @@ do -- Spawn and Update functions
 			Entity.FuelUse = ACF.FuelRate * Entity.Efficiency * 3e-8
 		end
 
+		Entity.FuelUse = Entity.FuelUse * Drivetrain.Adapters[Entity.DrivetrainAdapter].GetFuelScale(Entity)
+
 		ACF.Activate(Entity, true)
 
 		Contraption.SetMass(Entity, Mass)
@@ -283,13 +407,25 @@ do -- Spawn and Update functions
 	function ENT:ACF_PreSpawn(_, _, _, ClientData)
 		self.ACF               = {}
 		self.Active            = false
+		self.Firing            = false
+		self.Cranking          = false
+		self.StarterClock      = 0
+		self.Spool             = 0
+		self.GasGenerator      = 0
+		self.Regen             = 0
+		self.LBrake            = 0 -- Read by its wheels as a gearbox's is, on the side they're linked to
+		self.RBrake            = 0
+		self.RegenTorque       = 0
 		self.FuelTanks         = {}
-		self.LastThink         = 0
+		self.DriverCrewMod     = ACF.CrewFallbackCoef
 		self.MassRatio         = 1
 		self.FuelUsage         = 0
 		self.Throttle          = 0
 		self.FlyRPM            = 0
+		self.Torque            = 0 -- Read by its outputs while it is off and its drivetrain rests
 		self.LastPitch         = 0
+		self.LastVolume        = 0
+		self.SoundLevel        = 0
 		self.LastTorque        = 0
 		self.LastFuelUsage     = 0
 		self.LastPower         = 0
@@ -298,12 +434,13 @@ do -- Spawn and Update functions
 		self.LastPhysMass      = 0
 		self.revLimiterEnabled = true
 
-		-- ClientData isn't verified yet here; resolve defensively for the pre-spawn model. On dupes the
-		-- Engine field arrives nested ({Type,Data}) and falls through to the default - PostUpdate fixes it.
-		local Engine = Classes.GetSubtypeByName("ACF.Engines.BaseEngine", ClientData.Engine)
-			or Classes.GetTypeByName("ACF.Engines.5.7-V8")
+		-- ClientData isn't verified yet here; the layout's model unscaled does for the pre-spawn physics,
+		-- PostUpdate sizes it.
+		local Raw    = ClientData.Engine
+		local Layout = Classes.GetSubtypeByName("ACF.Engines.BaseEngine", istable(Raw) and Raw.Type or Raw)
+		local Entry  = Layout and Layout.Model or Classes.GetTypeByName("ACF.Engines.V8").Model
 
-		Contraption.SetModel(self, Engine.Model)
+		Contraption.SetModel(self, Entry.Model)
 
 		duplicator.ClearEntityModifier(self, "mass")
 	end
@@ -318,15 +455,17 @@ do -- Spawn and Update functions
 	end
 
 	function ENT:ACF_PostUpdateEntityData()
-		UpdateEngine(self, self:GetEngine())
+		local Engine = self:GetEngine()
+
+		Engine:VerifyData()
+		UpdateEngine(self, Engine:GetStats())
 
 		-- A reconfigure can invalidate existing links (no-op on a fresh spawn).
-		if next(self:ACF_GetUserVar("Gearboxes")) then
-			for Gearbox in pairs(self:ACF_GetUserVar("Gearboxes")) do
-				self:Unlink(Gearbox)
-				self:Link(Gearbox)
-			end
-		end
+		local Live = self.ACF_LiveData
+
+		for _, Gearbox in ipairs(table.GetKeys(Live.Gearboxes)) do self:Unlink(Gearbox) self:Link(Gearbox) end
+		for _, Other in ipairs(table.GetKeys(Live.Cranks)) do self:Unlink(Other) self:Link(Other) end
+		for _, Wheel in ipairs(table.GetKeys(Live.Wheels)) do self:Unlink(Wheel) self:Link(Wheel) end
 
 		-- Supported fuel types may have changed (no-op on a fresh spawn, which isn't parented yet)
 		if self.ACF_FuelParent then Fuel.Join(self) end
@@ -335,8 +474,17 @@ do -- Spawn and Update functions
 		self:UpdateLinkHints()
 	end
 
+	function ENT:ACF_SetupWireIO(Inputs)
+		-- Unset on the first call of a fresh spawn, which comes before its engine is
+		local Type = self.TypeData
+
+		if Type and Type.SetupInputs then Type.SetupInputs(self, Inputs) end
+	end
+
 	ACF.RegisterLinkSource("acf_engine", "FuelTanks")
 	ACF.RegisterLinkSource("acf_engine", "Gearboxes", nil, true)
+	ACF.RegisterLinkSource("acf_engine", "Cranks", nil, true)
+	ACF.RegisterLinkSource("acf_engine", "Wheels", nil, true)
 
 end
 
@@ -354,6 +502,7 @@ function ENT:Enable()
 	end
 
 	SetActive(self, Active, self:GetTable())
+	Drivetrain.Invalidate(self) -- Only working engines are part of a drivetrain
 
 	self:UpdateOverlay()
 	ACF.CheckLegal(self) -- MARCH: Check parent chain on enabled
@@ -361,12 +510,22 @@ end
 
 function ENT:Disable()
 	SetActive(self, false, self:GetTable()) -- Turn off the engine
+	Drivetrain.Invalidate(self)
 
 	self:UpdateOverlay()
 end
 
+--- Whether anything takes its torque, through a gearbox or not.
+function ENT:HasDrive(SelfTbl)
+	SelfTbl = SelfTbl or self:GetTable()
+
+	local Live = SelfTbl.ACF_LiveData
+
+	return next(Live.Gearboxes) or next(Live.Cranks) or next(Live.Wheels) or false
+end
+
 function ENT:UpdateLinkHints()
-	ACF.Hints.Set(self, "engine_no_gearbox", not next(self:ACF_GetUserVar("Gearboxes")))
+	ACF.Hints.Set(self, "engine_no_gearbox", not self:HasDrive())
 end
 
 function ENT:UpdateOutputs(SelfTbl)
@@ -395,11 +554,19 @@ function ENT:UpdateOutputs(SelfTbl)
 		SelfTbl.LastRPM = FlyRPM
 		WireLib.TriggerOutput(self, "RPM", FlyRPM)
 	end
+	if SelfTbl.LastFiring ~= SelfTbl.Firing then
+		SelfTbl.LastFiring = SelfTbl.Firing
+		WireLib.TriggerOutput(self, "Running", SelfTbl.Firing and 1 or 0)
+	end
 end
 
 function ENT:ACF_UpdateOverlayState(State)
-	if self.Active then
-		State:AddSuccess("Active")
+	if self.Firing then
+		State:AddSuccess("Running")
+	elseif self.Cranking then
+		State:AddLabel(self.StartingLabel)
+	elseif self.Active then
+		State:AddWarning("Stalled")
 	else
 		State:AddLabel("Off") -- Not a warning, being switched off is normal and warnings are for things to fix
 	end
@@ -412,7 +579,18 @@ function ENT:ACF_UpdateOverlayState(State)
 end
 
 ACF.AddInputAction("acf_engine", "Throttle", function(Entity, Value)
-	Entity.Throttle = Clamp(Value, 0, 100) * 0.01
+	Entity.Throttle = Clamp(Value, Entity.MinThrottle, 100) * 0.01
+end)
+
+ACF.AddInputAction("acf_engine", "Regen", function(Entity, Value)
+	Entity.Regen = Clamp(Value, 0, 100) * 0.01
+end)
+
+ACF.AddInputAction("acf_engine", "Brake", function(Entity, Value)
+	local Brake = Clamp(Value, 0, MAX_BRAKE)
+
+	Entity.LBrake = Brake
+	Entity.RBrake = Brake
 end)
 
 ACF.AddInputAction("acf_engine", "Active", function(Entity, Value)
@@ -450,20 +628,39 @@ function ENT:UpdateSound(SelfTbl)
 	end
 
 	if Path == "" then return end
-	if not SelfTbl.Active then return end
 
-	local Pitch, Volume = GetPitchVolume(SelfTbl)
+	local RPM, Load, Target = Drivetrain.Adapters[SelfTbl.DrivetrainAdapter].GetSound(SelfTbl)
+	local Level = max(Target, SelfTbl.SoundLevel - TickInterval() / SOUND_FADE)
 
-	if math.abs(Pitch - SelfTbl.LastPitch) < 1 then return end -- Don't bother updating if the pitch difference is too small to notice
+	SelfTbl.SoundLevel = Level
 
-	SelfTbl.LastPitch = Pitch
+	if Level <= 0 then
+		if SelfTbl.Sound then self:DestroySound() end
+
+		return
+	end
+
+	local Pitch  = Clamp(20 + RPM * SelfTbl.SoundPitch * 0.02, 1, 255)
+	local Rev    = 0.1 + 0.9 * (RPM / SelfTbl.LimitRPM) ^ 1.5
+	local Volume = Level * (0.25 + Rev * Load * 0.666) * SelfTbl.SoundVolume
+
+	-- Sent as a byte of hundredths; overrun past redline, it would wrap to near silence
+	Volume = min(Volume, 2.55)
 
 	if SelfTbl.Sound then
-		Sounds.SendAdjustableSound(self, false, Pitch, Volume)
+		if abs(Pitch - SelfTbl.LastPitch) < 1 and abs(Volume - SelfTbl.LastVolume) < VOLUME_DELTA then
+			return
+		end
+
+		-- Held back by the rate limit, it is tried again next tick rather than counted as heard
+		if not Sounds.SendAdjustableSound(self, false, Pitch, Volume) then return end
 	else
 		Sounds.CreateAdjustableSound(self, Path, Pitch, Volume)
 		SelfTbl.Sound = true
 	end
+
+	SelfTbl.LastPitch  = Pitch
+	SelfTbl.LastVolume = Volume
 end
 
 function ENT:DestroySound()
@@ -471,6 +668,8 @@ function ENT:DestroySound()
 
 	self.LastSound  = nil
 	self.LastPitch  = 0
+	self.LastVolume = 0
+	self.SoundLevel = 0
 	self.Sound      = nil
 end
 
@@ -508,176 +707,161 @@ hook.Add("cfw.contraption.entityRemoved", "ACF_Engine_ContraptionChecks", functi
 	end
 end)
 
--- specialized calcmassratio for engines
-function ENT:CalcMassRatio(SelfTbl)
-	SelfTbl        = SelfTbl or ENTITY.GetTable(self)
-	local Con      = ENTITY.CFW_GetContraption(self)
-	local PhysMass = 0
+--- Takes a count of its contraption's mass, which every engine on it shares.
+--- @param PhysMass number # kg the vehicle moves itself
+--- @param TotalMass number # kg
+--- @param Ratio number? # Overrides PhysMass / TotalMass
+function ENT:SetMassRatio(PhysMass, TotalMass, Ratio)
+	local SelfTbl = ENTITY.GetTable(self)
 
-	local Physical = Contraption.GetEnts(self)
+	SelfTbl.MassRatio = Ratio or PhysMass / TotalMass
 
-	for K in pairs(Physical) do
-		local Phys = ENTITY.GetPhysicsObject(K) -- Should always exist, but just in case
-
-		if IsPhysObjValid(Phys) then
-			local Mass = PHYSOBJ.GetMass(Phys)
-			PhysMass   = PhysMass + Mass
-		end
-	end
-
-	local TotalMass = Con and Con.totalMass or PhysMass
-
-	SelfTbl.MassRatio = PhysMass / TotalMass
 	TotalMass = Round(TotalMass, 2)
-	PhysMass = Round(PhysMass, 2)
+	PhysMass  = Round(PhysMass, 2)
 
 	if SelfTbl.LastTotalMass ~= TotalMass then
 		SelfTbl.LastTotalMass = TotalMass
-		WireLib.TriggerOutput(self, "Mass", Round(TotalMass, 2))
+		WireLib.TriggerOutput(self, "Mass", TotalMass)
 	end
 	if SelfTbl.LastPhysMass ~= PhysMass then
 		SelfTbl.LastPhysMass = PhysMass
-		WireLib.TriggerOutput(self, "Physical Mass", Round(PhysMass, 2))
+		WireLib.TriggerOutput(self, "Physical Mass", PhysMass)
 	end
 end
 
-function ENT:GetConsumption(Throttle, RPM, FuelTank, SelfTbl)
+--- Counts its contraption's mass now, for every engine on it.
+function ENT:CalcMassRatio()
+	Contraption.CalcMassRatio(self)
+end
+
+--- Fuel per second at a throttle and speed, each engine kind reckoning it its own way: Throttle is what it
+--- burns on, the governed throttle of a piston engine or the gas generator of a turbine. TankTbl, the tank's
+--- table, comes from a caller that already checked the tank this tick.
+function ENT:GetConsumption(Throttle, RPM, FuelTank, SelfTbl, TankTbl)
+	SelfTbl = SelfTbl or ENTITY.GetTable(self)
+
+	if not TankTbl then
+		FuelTank = FuelTank or SelfTbl.FuelTank
+		if not IsEntityValid(FuelTank) then return 0 end
+
+		TankTbl = ENTITY.GetTable(FuelTank)
+	end
+
+	local Rate = Drivetrain.Adapters[SelfTbl.DrivetrainAdapter].GetFuelRate(SelfTbl, Throttle,
+		RPM * ACF.RPMToRadS)
+
+	return TankTbl.IsElectric and Rate or Rate / TankTbl.FuelDensity
+end
+
+--- Fuel per second flat out at peak power, as the menu quotes it.
+function ENT:GetPeakConsumption(FuelTank, SelfTbl)
 	SelfTbl = SelfTbl or ENTITY.GetTable(self)
 	FuelTank = FuelTank or SelfTbl.FuelTank
 	if not IsEntityValid(FuelTank) then return 0 end
 
-	if FuelTank.IsElectric then
-		return Throttle * SelfTbl.FuelUse * SelfTbl.Torque * RPM * 1.05e-4
-	else
-		local IdleConsumption = SelfTbl.PeakPower * 5e2
-		return SelfTbl.FuelUse * (IdleConsumption + Throttle * SelfTbl.Torque * RPM) / FuelTank.FuelDensity
-	end
+	if FuelTank.IsElectric then return SelfTbl.FuelUse * SelfTbl.PeakPower end
+
+	return self:GetConsumption(1, SelfTbl.PeakPowerRPM or SelfTbl.LimitRPM, FuelTank, SelfTbl)
 end
 
 
 function ENT:Think()
 	local SelfTbl = ENTITY.GetTable(self)
 
-	if not SelfTbl.Active then return end
-	if not ACF.IsOperational(self, SelfTbl) then return end
+	if not ACF.IsOperational(self, SelfTbl) then
+		if SelfTbl.FlyRPM ~= 0 then -- Built out of its drivetrain, nothing turns it any more
+			SelfTbl.FlyRPM = 0
 
-	self:CalcRPM(SelfTbl)
+			SelfTbl.UpdateOutputs(self, SelfTbl)
+		end
 
-	-- CalcRPM can turn the engine off or disable it (e.g. no fuel or legality issues)
-	if not SelfTbl.Active or SelfTbl.Disabled then return end
+		if SelfTbl.Sound then SelfTbl.DestroySound(self) end
+
+		-- Wrecked, it still brakes the wheels on its crank, and nothing else may be stepping them
+		if SelfTbl.LBrake > 0 and not SelfTbl.Disabled and next(SelfTbl.ACF_LiveData.Wheels) then
+			Drivetrain.Run(self, SelfTbl)
+
+			self:NextThink(CurTime() + TickInterval())
+
+			return true
+		end
+
+		return
+	end
+
+	-- Switched off and unlinked, it spins down by its losses, and once stopped only switching it on can turn
+	-- it again
+	if not SelfTbl.Active and not SelfTbl.HasDrive(self, SelfTbl) then
+		local Train = SelfTbl.ACF_Powertrain
+
+		if not Train or Train.Resting then
+			if SelfTbl.Sound then SelfTbl.DestroySound(self) end
+
+			return
+		end
+	end
+
+	Drivetrain.Run(self, SelfTbl)
+
+	-- Its drivetrain can disable the engine (e.g. legality issues)
+	if SelfTbl.Disabled then
+		if SelfTbl.Sound then SelfTbl.DestroySound(self) end
+
+		return
+	end
+
+	-- Every tick, as stalling, spooling and switching off fade it rather than cut it
+	SelfTbl.UpdateSound(self, SelfTbl)
+
+	SelfTbl.UpdateOutputs(self, SelfTbl)
 
 	self:NextThink(CurTime() + TickInterval())
 
 	return true
 end
 
--- We're doing an experiment here. It seems that the entity table stores the functions for the entity
--- class as well. So we don't need to do self:Function for every entity (which would invoke the __index function)
--- If true then we should apply this in the rest of the hot paths.
-function ENT:CalcRPM(SelfTbl)
-	-- Reusing these entity table pointers helps us cut down on __index calls
-	-- This helps to massively improve performance throughout the entire drivetrain
+--- @return boolean # Whether the engine still runs
+function ENT:ConsumeFuel(DeltaTime, SelfTbl)
 	SelfTbl = SelfTbl or ENTITY.GetTable(self)
 
-	local ClockTime  = Clock.CurTime
-	local DeltaTime  = ClockTime - SelfTbl.LastThink
-	local FuelTank   = SelfTbl.FuelTank
-	local IsElectric = SelfTbl.IsElectric
-	local LimitRPM   = SelfTbl.LimitRPM
-	local FlyRPM     = SelfTbl.FlyRPM
+	local FuelTank = SelfTbl.FuelTank
+	local TankTbl  = FuelTank and IsEntityValid(FuelTank) and ENTITY.GetTable(FuelTank)
 
 	-- Re-searching in the same tick means a tank drained by another engine never stalls this one
-	if not (FuelTank and IsEntityValid(FuelTank) and ENTITY.GetTable(FuelTank).CanConsume(FuelTank)) then
+	if not (TankTbl and TankTbl.CanConsume(FuelTank, TankTbl)) then
 		FuelTank = FindFuelTank(SelfTbl)
+		TankTbl  = FuelTank and ENTITY.GetTable(FuelTank)
 		SelfTbl.FuelTank = FuelTank
 
-		if FuelTank then SelfTbl.FuelType = FuelTank.FuelType end
+		if FuelTank then SelfTbl.FuelType = TankTbl.FuelType end
 	end
 
-	-- Determine if the rev limiter will engage or disengage
-	local RevLimited = false
-	if SelfTbl.revLimiterEnabled and not IsElectric then
-		if FlyRPM > LimitRPM * 0.99 then
-			RevLimited = true
-		elseif FlyRPM < LimitRPM * 0.95 then
-			RevLimited = false
-		end
+	SelfTbl.Discharged = false
 
-		SelfTbl.RevLimited = RevLimited
-	end
-	local Throttle = RevLimited and 0 or SelfTbl.Throttle
-
-	-- Calculate fuel usage
 	if FuelTank then
-		local Consumption = SelfTbl.GetConsumption(self, Throttle, FlyRPM, FuelTank, SelfTbl) * DeltaTime
+		local Throttle    = SelfTbl.FuelThrottle or 0
+		local Consumption = SelfTbl.GetConsumption(self, Throttle, SelfTbl.FlyRPM, FuelTank, SelfTbl, TankTbl) * DeltaTime
 
 		SelfTbl.FuelUsage = 60 * Consumption / DeltaTime
-		ENTITY.GetTable(FuelTank).Consume(FuelTank, Consumption)
-	elseif ACF.RequireFuel then -- Stay active if fuel consumption is disabled
-		SetActive(self, false, SelfTbl)
+		TankTbl.Consume(FuelTank, Consumption, TankTbl)
 
-		SelfTbl.FuelUsage = 0
-
-		return 0
+		return true
 	end
 
-	-- Calculate the current torque from flywheel RPM
-	local IdleRPM    = SelfTbl.IdleRPM
-	local PeakRPM    = IsElectric and SelfTbl.FlywheelOverride or SelfTbl.PeakMaxRPM
-	local Inertia    = SelfTbl.Inertia
-	local PeakTorque = SelfTbl.PeakTorque
-	local Drag       = PeakTorque * (max(FlyRPM - IdleRPM, 0) / PeakRPM) * (1 - Throttle) / Inertia
+	if not ACF.RequireFuel then return true end -- Stay active if fuel consumption is disabled
 
-	local Torque = 0
+	SelfTbl.FuelUsage = 0
 
-	if Throttle ~= 0 and FlyRPM < LimitRPM then
-		local Percent = Remap(FlyRPM, IdleRPM, LimitRPM, 0, 1)
-		Torque = Throttle * ACF.GetTorque(SelfTbl.TorqueCurve, Percent) * PeakTorque -- * (FlyRPM < LimitRPM and 1 or 0)
+	-- A motor on a flat battery stays switched on without power, so regenerating can charge it again
+	if SelfTbl.IsElectric then
+		SelfTbl.Discharged = true
+
+		return true
 	end
 
-	SelfTbl.Torque = Torque
+	SetActive(self, false, SelfTbl)
 
-	-- Let's accelerate the flywheel based on that torque
-	FlyRPM = min(max(FlyRPM + Torque / Inertia - Drag, 0), LimitRPM)
-
-	-- The gearboxes don't think on their own, it's the engine that calls them, to ensure consistent execution order
-	local Boxes      = 0
-	local TotalReqTq = 0
-
-	-- This is the presently available torque from the engine
-	local TorqueDiff = max(FlyRPM - IdleRPM, 0) * Inertia
-
-	-- The resulting torque output would be 0 when there's no throttle anyways, so we'll just skip the calculations entirely
-	if Throttle ~= 0 then
-		local BoxesTbl = SelfTbl.ACF_LiveData.Gearboxes
-
-		-- Get the requirements for torque for the gearboxes (Max clutch rating minus any wheels currently spinning faster than the Flywheel)
-		for Ent, Link in pairs(BoxesTbl) do
-			local EntTable = ENTITY.GetTable(Ent)
-			if not EntTable.Disabled then
-				Boxes = Boxes + 1
-				Link.ReqTq = EntTable.Calc(Ent, FlyRPM, Inertia)
-				TotalReqTq = TotalReqTq + Link.ReqTq
-			end
-		end
-
-		-- Calculate the ratio of total requested torque versus what's available
-		local AvailRatio = min(TorqueDiff / TotalReqTq / Boxes, 1)
-
-		local MassRatio = SelfTbl.MassRatio
-
-		-- Split the torque fairly between the gearboxes who need it
-		for Ent, Link in pairs(BoxesTbl) do
-			Link:TransferGearbox(Ent, Link.ReqTq * AvailRatio * MassRatio, DeltaTime, MassRatio, FlyRPM)
-			--Ent:Act(Link.ReqTq * AvailRatio * MassRatio, DeltaTime, MassRatio)
-		end
-	end
-
-	SelfTbl.FlyRPM = FlyRPM - min(TorqueDiff, TotalReqTq) / Inertia
-	SelfTbl.LastThink = ClockTime
-
-	SelfTbl.UpdateSound(self, SelfTbl)
-	SelfTbl.UpdateOutputs(self, SelfTbl)
+	return false
 end
 
 function ENT:GetCost()
@@ -701,6 +885,13 @@ function ENT:OnRemove(IsFullUpdate)
 
 	Fuel.Leave(self)
 
+	-- Here rather than in the generic unlink after this, so its wheels no longer count it as driving them
+	for _, Wheel in ipairs(table.GetKeys(self.ACF_LiveData.Wheels or {})) do
+		self:Unlink(Wheel)
+
+		ACF.ReleaseWheelTorqueAxis(Wheel)
+	end
+
 	TimerRemove("ACF Engine Clock " .. self:EntIndex())
 end
 
@@ -718,32 +909,32 @@ do	-- NET SURFER 2.0
 		local Entity = ACF.ReadEntity()
 
 		if IsEntityValid(Entity) and Entity:GetClass() == "acf_engine" then
-			local Outputs    = {}
+			local Outputs    = {} -- Each as its index and where the shaft meets it, local to it
 			local FuelTanks  = {}
 			local Driveshaft = Entity.Out.Pos
 
-			if next(Entity:ACF_GetUserVar("Gearboxes")) then
-				for E in pairs(Entity:ACF_GetUserVar("Gearboxes")) do
-					Outputs[#Outputs + 1] = E:EntIndex()
+			local Live = Entity.ACF_LiveData
+
+			for _, Links in ipairs({ Live.Gearboxes, Live.Wheels }) do
+				for E, Link in pairs(Links) do
+					Outputs[#Outputs + 1] = { E:EntIndex(), Link:GetTargetPos() }
 				end
 			end
 
-			if next(Entity.FuelTanks) then
-				for E in pairs(Entity.FuelTanks) do
-					FuelTanks[#FuelTanks + 1] = E:EntIndex()
-				end
-			end
+			-- A shared link points at one end only
+			for E in pairs(Live.Cranks) do Outputs[#Outputs + 1] = { E:EntIndex(), E.Out.Pos } end
+
+			for E in pairs(Entity.FuelTanks) do FuelTanks[#FuelTanks + 1] = E:EntIndex() end
 
 			net.Start("ACF_RequestEngineInfo")
 				ACF.WriteEntity(Entity)
 				net.WriteVector(Driveshaft)
-				net.WriteUInt(#Outputs, 6)
+				net.WriteUInt(#Outputs, 8) -- Wheels and cranks count as outputs too
 				net.WriteUInt(#FuelTanks, 6)
 
-				if next(Outputs) then
-					for _, E in ipairs(Outputs) do
-						net.WriteUInt(E, MAX_EDICT_BITS)
-					end
+				for _, Output in ipairs(Outputs) do
+					net.WriteUInt(Output[1], MAX_EDICT_BITS)
+					net.WriteVector(Output[2])
 				end
 
 				if next(FuelTanks) then

@@ -58,7 +58,7 @@ return {
             name = "Drops group classes on leaf-only fields",
             func = function()
                 expect( Sanitize( "acf_radar", { Sensor = "ACF.Sensors.Radar.Standard" } ).Sensor ).to.beNil()
-                expect( Sanitize( "acf_engine", { Engine = "ACF.Engines.V8" } ).Engine ).to.beNil()
+                expect( Sanitize( "acf_engine", { Engine = "ACF.Engines.V" } ).Engine ).to.beNil()
                 expect( Sanitize( "acf_gun", { Weapon = "ACF.Guns.BaseScalableGun" } ).Weapon ).to.beNil()
                 expect( Sanitize( "acf_gun", { Weapon = "ACF.Guns.FlareLauncher" } ).Weapon ).to.beNil()
             end

@@ -726,35 +726,58 @@ do -- Wheel torque axes
 		Wheel:SetNWInt("ACF_TorqueSign", Wheel.ACF_TorqueSign or 1)
 	end
 
-	-- Wheel.ACF_TorqueAxis (1-3 for local X/Y/Z) overrides snapping the gearbox's right, which all its wheels share
+	local EMPTY = {}
+
+	-- What positive torque turns a wheel about: a gearbox's right, which all its wheels share, or an engine's
+	-- crank
+	local function GetDriveDir(Source)
+		if not Source.IsACFEngine then return Source:GetRight() end
+
+		local _, Dir = Source.Out:ApplyTo(Source)
+
+		return Dir
+	end
+
+	-- Wheel.ACF_TorqueAxis (1-3 for local X/Y/Z) overrides snapping to what drives it
 	function ACF.UpdateWheelAxes(Wheel)
 		local Phys = Wheel:GetPhysicsObject()
 
-		if not IsValid(Phys) or not Wheel.ACF_Gearboxes then return end
+		if not IsValid(Phys) then return end
 
-		local Axis = Wheel.ACF_TorqueAxis
+		local Sources = { Wheel.ACF_Gearboxes or EMPTY, Wheel.ACF_Engines or EMPTY }
+		local Axis    = Wheel.ACF_TorqueAxis
 
 		if not Axis then
 			local Sum, First = Vector()
 
-			for Box in pairs(Wheel.ACF_Gearboxes) do
-				Sum   = Sum + Box:GetRight()
-				First = First or Box
+			for _, Links in ipairs(Sources) do
+				for Source in pairs(Links) do
+					local Dir = GetDriveDir(Source)
+
+					Sum   = Sum + Dir
+					First = First or Dir
+				end
 			end
 
 			if not First then return end
-			if Sum:IsZero() then Sum = First:GetRight() end -- Gearboxes facing opposite ways cancel out
+			if Sum:IsZero() then Sum = First end -- Sources facing opposite ways cancel out
 
 			Axis = ACF.GetWheelAxis(Wheel, Sum)
 		end
 
 		Axis = ACF.WheelAxes[Axis]
 
-		local World = Phys:LocalToWorldVector(Axis)
+		local World      = Phys:LocalToWorldVector(Axis)
+		local Drivetrain = ACF.Mobility.Drivetrain
 
-		for Box, Link in pairs(Wheel.ACF_Gearboxes) do
-			-- Signed per gearbox so positive torque rolls the same way whichever way the wheel faces
-			Link:SetAxis(Axis * ACF.GetAxisSign(World, Box:GetRight(), Wheel.ACF_TorqueAxis and Wheel.ACF_TorqueSign))
+		for _, Links in ipairs(Sources) do
+			for Source, Link in pairs(Links) do
+				-- Signed per source so positive torque rolls the same way whichever way the wheel faces
+				Link:SetAxis(Axis * ACF.GetAxisSign(World, GetDriveDir(Source),
+					Wheel.ACF_TorqueAxis and Wheel.ACF_TorqueSign))
+
+				Drivetrain.Invalidate(Source) -- A built drivetrain keeps the axis it was built with
+			end
 		end
 	end
 
@@ -769,9 +792,18 @@ do -- Wheel torque axes
 		end
 
 		ACF.UpdateWheelAxes(Wheel)
-	end
+		end
 
-	-- A paste can run this before or after the gearboxes relink, so links built first get redone
+		--- Drops a wheel's defined axis once nothing drives it, as the axis is shared by everything linked to it.
+		--- @param Wheel entity
+		function ACF.ReleaseWheelTorqueAxis(Wheel)
+			if not IsValid(Wheel) or not Wheel.ACF_TorqueAxis then return end
+			if next(Wheel.ACF_Gearboxes or {}) or next(Wheel.ACF_Engines or {}) then return end
+
+			ACF.SetWheelTorqueAxis(Wheel, nil)
+		end
+
+		-- A paste can run this before or after the gearboxes relink, so links built first get redone
 	duplicator.RegisterEntityModifier("ACF_TorqueAxis", function(_, Wheel, Data)
 		if not IsValid(Wheel) or not istable(Data) or not ACF.WheelAxes[Data.Axis] then return end
 
@@ -1072,6 +1104,16 @@ end
 -- Anything else counts only once GetEnts finds it constrained within the core's reach, so a weight held
 -- away from the vehicle on a constraint adds nothing.
 do
+	local EMPTY = {}
+
+	local function AreDriversFree(Sources)
+		for Source in pairs(Sources) do
+			if Source.Disabled or constraint.HasConstraints(Source) then return false end
+		end
+
+		return true
+	end
+
 	function ACF.IsEntityEligiblePhysmass(Entity)
 		if not IsValid(Entity) then return false end
 
@@ -1082,16 +1124,13 @@ do
 		local Class = Entity:GetClass()
 		if Class ~= "acf_baseplate" and Class ~= "prop_physics" then return false end
 
-		-- Don't allow props that aren't attached to gearboxes to count as physical mass
+		-- Don't allow props that aren't driven by gearboxes or engines to count as physical mass
 		if Class == "prop_physics" then
-			local Gearboxes = Entity.ACF_Gearboxes
-			if Gearboxes == nil then return false end
-			if not next(Gearboxes) then return false end
-			-- Ensure all gearboxes have no constraints on them and none are disabled by ACF
-			for Gearbox in pairs(Gearboxes) do
-				if Gearbox.Disabled then return false end
-				if constraint.HasConstraints(Gearbox) then return false end
-			end
+			local Gearboxes = Entity.ACF_Gearboxes or EMPTY
+			local Engines   = Entity.ACF_Engines or EMPTY
+			if not next(Gearboxes) and not next(Engines) then return false end
+			-- Ensure everything driving it has no constraints on it and none of it is disabled by ACF
+			if not AreDriversFree(Gearboxes) or not AreDriversFree(Engines) then return false end
 		end
 
 		return true

@@ -110,9 +110,11 @@ e2function number acfInfoRestricted()
 	return ACF.RestrictInfo and 1 or 0
 end
 
--- Returns the internal torque multiplier
+-- Engines push their listed torque, so this is always 1
+-- ExtPP only accepts letters, digits, spaces and underscores in an attribute message
+[deprecated = "ACF no longer multiplies engine torque and this always returns 1"]
 e2function number acfTorqueMult()
-	return ACF.TorqueMult or 1
+	return 1
 end
 
 __e2setcost(5)
@@ -526,23 +528,13 @@ end
 e2function number entity:acfPowerbandMin()
 	if not IsACFEntity(this) then return 0 end
 	if RestrictInfo(self, this) then return 0 end
-	if not this.PeakMinRPM then return 0 end
-
-	if this.IsElectric and this.IdleRPM then
-		return math.max(this.IdleRPM, this.PeakMinRPM)
-	end
-
-	return this.PeakMinRPM
+	return this.PeakMinRPM or 0
 end
 
 -- Returns the powerband max of an ACF engine
 e2function number entity:acfPowerbandMax()
 	if not IsACFEntity(this) then return 0 end
 	if RestrictInfo(self, this) then return 0 end
-
-	if this.IsElectric and this.LimitRPM then
-		return floor(this.LimitRPM * 0.5)
-	end
 
 	return this.PeakMaxRPM or 0
 end
@@ -661,16 +653,8 @@ e2function number entity:acfInPowerband()
 	if RestrictInfo(self, this) then return 0 end
 	if not this.FlyRPM then return 0 end
 
-	local PowerbandMin
-	local PowerbandMax
-
-	if this.IsElectric then
-		PowerbandMin = this.IdleRPM
-		PowerbandMax = floor((this.LimitRPM or 0) * 0.5)
-	else
-		PowerbandMin = this.PeakMinRPM
-		PowerbandMax = this.PeakMaxRPM
-	end
+	local PowerbandMin = this.PeakMinRPM
+	local PowerbandMax = this.PeakMaxRPM
 
 	if not PowerbandMin then return 0 end
 	if not PowerbandMax then return 0 end
@@ -953,20 +937,18 @@ e2function number entity:acfFuelUse()
 	if not IsACFEntity(this) then return 0 end
 	if RestrictInfo(self, this) then return 0 end
 	if not this.GetConsumption then return 0 end
-	if not this.Throttle then return 0 end
-	if not this.FlyRPM then return 0 end
 
-	return this:GetConsumption(this.Throttle, this.FlyRPM) * 60
+	return this.FuelUsage or 0 -- What its drivetrain burned this tick, already per minute
 end
 
--- Returns the peak fuel consumption in liters per minute or kilowatts of an engine at powerband max, for the current fuel type the engine is using
+-- Returns the peak fuel consumption in liters per minute or kilowatts of an engine at peak power, for the
+-- current fuel type the engine is using
 e2function number entity:acfPeakFuelUse()
 	if not IsACFEntity(this) then return 0 end
 	if RestrictInfo(self, this) then return 0 end
-	if not this.GetConsumption then return 0 end
-	if not this.LimitRPM then return 0 end
+	if not this.GetPeakConsumption then return 0 end
 
-	return this:GetConsumption(1, this.LimitRPM) * 60
+	return this:GetPeakConsumption() * 60
 end
 
 __e2setcost(20)

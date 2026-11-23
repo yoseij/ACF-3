@@ -1,225 +1,49 @@
 local ACF     = ACF
 local Classes = ACF.Classes
 
-do -- Electric Motors
-	Classes.DefineClass("ACF.Engines.EL", "ACF.Engines.BaseEngine", function(CLASS)
-		CLASS.Name		= "Electric Motor"
-		CLASS.Description	= "#acf.descs.engines.el"
-	end)
+Classes.DefineClass("ACF.Engines.Electric", "ACF.Engines.BaseEngine", function(CLASS)
+	CLASS.Name        = "Electric Motor"
+	CLASS.Description = "#acf.descs.engines.electric"
+	CLASS.EngineTypes = { "ACF.EngineTypes.Electric" }
+	-- kg per m^3 of its box, between the Danfoss EM-PMI318B's 2770 (81 kg, Ø360 x 226 mm) and EM-PMI375's
+	-- 2420 (210 kg, Ø450 x 428 mm)
+	CLASS.BoxDensity  = 2600
+	-- Length over diameter of geared traction motors, between the Danfoss EM-PMI318B's 0.63 and EM-PMI375's
+	-- 0.95
+	CLASS.Aspect      = 0.8
 
-	Classes.DefineClass("ACF.Engines.Electric-Small", "ACF.Engines.EL", function(CLASS)
-		CLASS.Name		 = "Small Electric Motor"
-		CLASS.Description	 = "#acf.descs.engines.el.small"
-		CLASS.Model		 = "models/engines/emotorsmall.mdl"
-		CLASS.Sound		 = "acf_base/engines/electric_small.wav"
-		CLASS.Fuel		 = { ["ACF.FuelTypes.Electric"] = true }
-		CLASS.Type		 = "ACF.EngineTypes.Electric"
-		CLASS.Mass		 = 320
-		CLASS.Torque		 = 428
-		CLASS.FlywheelMass = 0.3
-		CLASS.IsElectric	 = true
-		CLASS.RPM = {
-			Idle	 = 0,
-			Limit	 = 10000,
-			Override = 5000,
-		}
-		CLASS.Preview = {
-			FOV = 86,
-		}
-	end)
+	MENU_FIELD("ACF.EngineTypes.BaseEngineType", "EngineType", { OnlyAllowSubtypes = true, InstantiateTypeForDefault = "ACF.EngineTypes.Electric" })
 
-	Classes.DefineClass("ACF.Engines.Electric-Medium", "ACF.Engines.EL", function(CLASS)
-		CLASS.Name		 = "Medium Electric Motor"
-		CLASS.Description	 = "#acf.descs.engines.el.medium"
-		CLASS.Model		 = "models/engines/emotormed.mdl"
-		CLASS.Sound		 = "acf_base/engines/electric_medium.wav"
-		CLASS.Fuel		 = { ["ACF.FuelTypes.Electric"] = true }
-		CLASS.Type		 = "ACF.EngineTypes.Electric"
-		CLASS.Mass		 = 880
-		CLASS.Torque		 = 1422
-		CLASS.FlywheelMass = 1.5
-		CLASS.IsElectric	 = true
-		CLASS.RPM = {
-			Idle	 = 0,
-			Limit	 = 7000,
-			Override = 8000,
-		}
-		CLASS.Preview = {
-			FOV = 88,
-		}
-	end)
+	--- A motor's size goes by its mass, which its continuous torque sets, rather than straight by its rating.
+	--- The mesh is twice as long for its width as a real motor, so it is shortened along its shaft to a real
+	--- motor's proportions.
+	function CLASS:GetScale(Size)
+		local Model   = self.Model
+		local Stretch = self.Aspect / Model.Aspect
+		local Scale   = (self.EngineType:GetMass(Size, self, self) / self.BoxDensity / Model.Volume / Stretch) ^ (1 / 3)
 
-	Classes.DefineClass("ACF.Engines.Electric-Large", "ACF.Engines.EL", function(CLASS)
-		CLASS.Name		 = "Large Electric Motor"
-		CLASS.Description	 = "#acf.descs.engines.el.large"
-		CLASS.Model		 = "models/engines/emotorlarge.mdl"
-		CLASS.Sound		 = "acf_base/engines/electric_large.wav"
-		CLASS.Fuel		 = { ["ACF.FuelTypes.Electric"] = true }
-		CLASS.Type		 = "ACF.EngineTypes.Electric"
-		CLASS.Mass		 = 1900
-		CLASS.Torque		 = 4200
-		CLASS.FlywheelMass = 11.2
-		CLASS.IsElectric	 = true
-		CLASS.RPM = {
-			Idle	 = 0,
-			Limit	 = 4500,
-			Override = 6000,
+		return Vector(Scale * Stretch, Scale, Scale)
+	end
+end)
+
+do -- Electric Motor
+	-- One layout, as every motor needs a battery
+	Classes.DefineClass("ACF.Engines.EL", "ACF.Engines.Electric", function(CLASS)
+		CLASS.Name      = "Electric Motor"
+		CLASS.Order     = 1
+		CLASS.Model     = { Model = "models/engines/emotor-standalone-mid.mdl", Footprint = 0.702, Volume = 0.2679, Aspect = 1.63, FOV = 112 } -- Shaft along X, 35.2 in long and 21.5 across
+		CLASS.Sounds    = {
+			{ Size = 8, Sound = "acf_base/engines/electric_small.wav", Sounds = { Electric = "acf_base/engines/electric_small.wav" } },
+			{ Size = 84, Sound = "acf_base/engines/electric_small.wav", Sounds = { Electric = "acf_base/engines/electric_small.wav" } },
+			{ Size = 202, Sound = "acf_base/engines/electric_medium.wav", Sounds = { Electric = "acf_base/engines/electric_medium.wav" } },
+			{ Size = 396, Sound = "acf_base/engines/electric_large.wav", Sounds = { Electric = "acf_base/engines/electric_large.wav" } },
 		}
+
+		MENU_FIELD("Number", "Power", { Min = 8, Max = 495, Default = 261, Decimals = 0 })
 	end)
 end
 
-do -- Electric Standalone Motors
-	Classes.DefineClass("ACF.Engines.EL-S", "ACF.Engines.BaseEngine", function(CLASS)
-		CLASS.Name		= "Electric Standalone Motor"
-		CLASS.Description	= "#acf.descs.engines.el.standalone"
-	end)
-
-	Classes.DefineClass("ACF.Engines.Electric-Tiny-NoBatt", "ACF.Engines.EL-S", function(CLASS)
-		CLASS.Name		 = "Tiny Electric Standalone Motor"
-		CLASS.Description	 = "#acf.descs.engines.el.standalone.tiny"
-		CLASS.Model		 = "models/engines/emotor-standalone-tiny.mdl"
-		CLASS.Sound		 = "acf_base/engines/electric_small.wav"
-		CLASS.Fuel		 = { ["ACF.FuelTypes.Electric"] = true }
-		CLASS.Type		 = "ACF.EngineTypes.Electric"
-		CLASS.Mass		 = 80
-		CLASS.Torque		 = 31
-		CLASS.FlywheelMass = 0.025
-		CLASS.IsElectric	 = true
-		CLASS.RPM = {
-			Idle	 = 0,
-			Limit	 = 10000,
-			Override = 500,
-		}
-		CLASS.Preview = {
-			FOV = 120,
-		}
-	end)
-
-	Classes.DefineClass("ACF.Engines.Electric-Small-NoBatt", "ACF.Engines.EL-S", function(CLASS)
-		CLASS.Name		 = "Small Electric Standalone Motor"
-		CLASS.Description	 = "#acf.descs.engines.el.standalone.small"
-		CLASS.Model		 = "models/engines/emotor-standalone-sml.mdl"
-		CLASS.Sound		 = "acf_base/engines/electric_small.wav"
-		CLASS.Fuel		 = { ["ACF.FuelTypes.Electric"] = true }
-		CLASS.Type		 = "ACF.EngineTypes.Electric"
-		CLASS.Mass		 = 180
-		CLASS.Torque		 = 321
-		CLASS.FlywheelMass = 0.3
-		CLASS.IsElectric	 = true
-		CLASS.RPM = {
-			Idle	 = 0,
-			Limit	 = 10000,
-			Override = 5000,
-		}
-		CLASS.Preview = {
-			FOV = 114,
-		}
-	end)
-
-	Classes.DefineClass("ACF.Engines.Electric-Medium-NoBatt", "ACF.Engines.EL-S", function(CLASS)
-		CLASS.Name		 = "Medium Electric Standalone Motor"
-		CLASS.Description	 = "#acf.descs.engines.el.standalone.medium"
-		CLASS.Model		 = "models/engines/emotor-standalone-mid.mdl"
-		CLASS.Sound		 = "acf_base/engines/electric_medium.wav"
-		CLASS.Fuel		 = { ["ACF.FuelTypes.Electric"] = true }
-		CLASS.Type		 = "ACF.EngineTypes.Electric"
-		CLASS.Mass		 = 640
-		CLASS.Torque		 = 1102
-		CLASS.FlywheelMass = 1.5
-		CLASS.IsElectric	 = true
-		CLASS.RPM = {
-			Idle	 = 0,
-			Limit	 = 7000,
-			Override = 8000,
-		}
-		CLASS.Preview = {
-			FOV = 112,
-		}
-	end)
-
-	Classes.DefineClass("ACF.Engines.Electric-Large-NoBatt", "ACF.Engines.EL-S", function(CLASS)
-		CLASS.Name		 = "Large Electric Standalone Motor"
-		CLASS.Description	 = "#acf.descs.engines.el.standalone.large"
-		CLASS.Model		 = "models/engines/emotor-standalone-big.mdl"
-		CLASS.Sound		 = "acf_base/engines/electric_large.wav"
-		CLASS.Fuel		 = { ["ACF.FuelTypes.Electric"] = true }
-		CLASS.Type		 = "ACF.EngineTypes.Electric"
-		CLASS.Mass		 = 1500
-		CLASS.Torque		 = 3360
-		CLASS.FlywheelMass = 11.2
-		CLASS.IsElectric	 = true
-		CLASS.RPM = {
-			Idle	 = 0,
-			Limit	 = 4500,
-			Override = 6000,
-		}
-		CLASS.Preview = {
-			FOV = 110,
-		}
-	end)
-end
-
-ACF.SetCustomAttachment("models/engines/emotorlarge.mdl", "driveshaft", Vector(), Angle(0, 0, 90))
-ACF.SetCustomAttachment("models/engines/emotormed.mdl", "driveshaft", Vector(), Angle(0, 0, 90))
-ACF.SetCustomAttachment("models/engines/emotorsmall.mdl", "driveshaft", Vector(), Angle(0, 0, 90))
-ACF.SetCustomAttachment("models/engines/emotor-standalone-big.mdl", "driveshaft", Vector(), Angle(0, -90, 90))
-ACF.SetCustomAttachment("models/engines/emotor-standalone-mid.mdl", "driveshaft", Vector(), Angle(0, -90, 90))
-ACF.SetCustomAttachment("models/engines/emotor-standalone-sml.mdl", "driveshaft", Vector(), Angle(0, -90, 90))
-ACF.SetCustomAttachment("models/engines/emotor-standalone-tiny.mdl", "driveshaft", Vector(), Angle(0, -90, 90))
-
-local Fullsizes = {
-	{ Model = "models/engines/emotorlarge.mdl", Scale = 1.92 },
-	{ Model = "models/engines/emotormed.mdl", Scale = 1.37 },
-	{ Model = "models/engines/emotorsmall.mdl", Scale = 1 },
-}
-
-local Standalones = {
-	{ Model = "models/engines/emotor-standalone-big.mdl", Scale = 1.67 },
-	{ Model = "models/engines/emotor-standalone-mid.mdl", Scale = 1.33 },
-	{ Model = "models/engines/emotor-standalone-sml.mdl", Scale = 1 },
-}
-
-for _, Data in ipairs(Fullsizes) do
-	local Scale = Data.Scale
-
-	ACF.AddHitboxes(Data.Model, {
-		Main = {
-			Pos       = Vector(13, 0, 0.5) * Scale,
-			Scale     = Vector(26, 14, 14) * Scale,
-			Sensitive = true
-		},
-		CableBullshit = {
-			Pos   = Vector(31, 0, 0.5) * Scale,
-			Scale = Vector(10, 14, 14) * Scale
-		},
-		LeftPack = {
-			Pos   = Vector(18.75, -13.5, 0.5) * Scale,
-			Scale = Vector(37, 10, 14.5) * Scale
-		},
-		RightPack = {
-			Pos   = Vector(18.75, 13.5, 0.5) * Scale,
-			Scale = Vector(37, 10, 14.5) * Scale
-		}
-	})
-end
-
-for _, Data in ipairs(Standalones) do
-	local Scale = Data.Scale
-
-	ACF.AddHitboxes(Data.Model, {
-		Main = {
-			Pos       = Vector(9) * Scale,
-			Scale     = Vector(20, 16, 16) * Scale,
-			Sensitive = true
-		}
-	})
-end
-
--- Special snowflake
-ACF.AddHitboxes("models/engines/emotor-standalone-tiny.mdl", {
-	Main = {
-		Pos       = Vector(-0.5),
-		Scale     = Vector(14, 10, 10),
-		Sensitive = true
-	}
+-- The toolgun's outline of each layout's model at scale 1; engines scale them with themselves
+ACF.AddHitboxes("models/engines/emotor-standalone-mid.mdl", {
+	Main = { Pos = Vector(11.97), Scale = Vector(26.6, 21.28, 21.28), Sensitive = true },
 })

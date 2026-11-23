@@ -61,6 +61,7 @@ end
 --- @param ShouldStop? boolean Whether the sound should be destroyed; defaults to false
 --- @param Pitch integer The sound's pitch from 0-255
 --- @param Volume number A float representing the sound's volume. This is internally converted into an integer from 0-255 for network optimization
+--- @return boolean # Whether it was sent, rather than held back by the rate limit
 function Sounds.SendAdjustableSound(Origin, ShouldStop, Pitch, Volume)
 	ShouldStop = ShouldStop or false
 	local Time = CurTime()
@@ -84,5 +85,9 @@ function Sounds.SendAdjustableSound(Origin, ShouldStop, Pitch, Volume)
 		end
 		net.SendPAS(Origin:GetPos())
 		OriginTbl.SoundTimer = Time + 0.05
+
+		return true
 	end
+
+	return false
 end

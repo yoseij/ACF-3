@@ -1,7 +1,7 @@
 ACF.Classes.DefineClass("ACF.FuelTypes.Electric", "ACF.FuelTypes.FuelType", function(CLASS)
     CLASS.ID         = "Electric"
     CLASS.Name       = "Lit-Ion Battery"
-    CLASS.Density    = 3.89
+    CLASS.Density    = 2.6 -- kg/L, a Model 3 pack's 416 Wh/L at its 160 Wh/kg
     CLASS.ArmorType  = "LiIon"
     CLASS.IsElectric = true
 

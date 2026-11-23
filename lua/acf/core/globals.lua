@@ -173,6 +173,9 @@ do -- ACF global vars
 	-- The deviation of the input direction from the shaft + the output direction from the shaft cannot exceed this
 	ACF.DefineSetting("MaxDriveshaftAngle",   85,    nil, ACF.FloatDataCallback(85, 180, 0), 360)
 
+	-- Server-wide, as any per-vehicle value would just be set to nothing for speed
+	ACF.DefineSetting("RollingResistance",    0.05,  "Rolling resistance has been set to %.3f.", ACF.FloatDataCallback(0, 0.3, 3))
+
 	ACF.DefineSetting("EnableKillFeedCost",   true,   "Kill feed cost display has been %s.", ACF.BooleanDataCallback())
 	ACF.DefineSetting("KillLogFlushInterval", 30,    "Kill log disk-write interval has been set to %s seconds.", ACF.FloatDataCallback(15, 600, 0))
 	ACF.DefineSetting("KillLogMaxSessions",   20,    "Kill log max retained sessions has been set to %s.", ACF.FloatDataCallback(1, 500, 0))
@@ -371,7 +374,8 @@ do -- ACF global vars
 	ACF.ContainerMaxSize   = 96 -- Defines the highest possible length of containers (fuel tanks, supply crates) for all their axises, in gmu
 	ACF.FuelSupplyColor    = Color(76, 201, 250, 10) -- The color to use for the fuel supply effect
 	ACF.CrewSupplyColor    = Color(255, 80, 200, 10) -- The color to use for the crew revival supply effect
-	ACF.LiIonED            = 0.458 -- li-ion energy density: kw hours / liter
+	-- kWh per liter of battery, pack level: a Tesla Model 3 pack, casing and cooling included
+	ACF.LiIonED            = 0.416
 	ACF.SupplyDistance     = 300 -- Distance in which supply units distribute mass to containers.
 	ACF.SupplyMassRate     = 0.007017 -- kg per second per cubic inch of supply unit volume (no distance attenuation)
 
@@ -446,8 +450,6 @@ do -- ACF global vars
 	ACF.GearEfficiency     = 0.95 -- The percentage of RPM efficiency kept when increasing the gear count
 	ACF.GearboxMassScale   = 3 -- The exponent to determine the gearbox's mass in proportion to its scale
 	ACF.GearboxTorqueScale = 3 -- The exponent to determine the gearbox's torque in proportion to its scale
-	-- The arbitrary multiplier for the final amount of torque; TODO: we should probably implement this in a better way
-	ACF.DefineSetting("TorqueMult", 2.5, "Arbitrary torque multiplier has been set to a factor of %.2f. Stopgap measure until a future engine update.", ACF.FloatDataCallback(0, 10, 2))
 	ACF.MinGearRatio       = -10 -- The minimum value that a gear's ratio can be set to
 	ACF.MaxGearRatio       = 10 -- The maximum value that a gear's ratio can be set to
 	ACF.MinCVTRatio        = 1 -- The minimum value that a CVT's ratio can be set to (realistic)

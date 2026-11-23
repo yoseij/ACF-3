@@ -1,7 +1,7 @@
 local Storyboard = Ponder.API.NewStoryboard("acf", "tankbasics", "drivetrain")
 Storyboard:WithName("Drivetrains")
 Storyboard:WithBaseEntity(nil)
-Storyboard:WithModelIcon("models/engines/v12l.mdl")
+Storyboard:WithModelIcon("models/engines/v12m.mdl")
 Storyboard:WithDescription("Learn how to make your tank move.")
 Storyboard:WithIndexOrder(99)
 
@@ -25,7 +25,7 @@ Chapter:AddDelay(Chapter:AddInstruction("Caption", {Text = "Now that you have a 
 Chapter:AddDelay(1)
 local Chapter = Storyboard:Chapter("Engines Intro")
 Chapter:AddDelay(1)
-Chapter:AddInstruction("Caption", {Text = "Select engines from the menu, then click on the drop downs to select the engine class and model you want."})
+Chapter:AddInstruction("Caption", {Text = "Select engines from the menu, then use the drop downs to pick the engine family, its layout and what it burns."})
 
 Chapter:AddInstruction("PlacePanel", {
     Name = "MainMenuCPanel",
@@ -44,16 +44,20 @@ Chapter:AddInstruction("ACF.SelectMenuTreeNode", {Name = "MainMenuCPanel", Selec
 Chapter:AddInstruction("ACF.ScrollToMenuPanel", {Name = "MainMenuCPanel", Scroll = "#acf.menu.engines.engine_info"}):DelayByLength()
 
 Chapter:AddDelay(1)
-Chapter:AddInstruction("ACF.SetPanelComboBox", {Name = "MainMenuCPanel", Choice = "V12 Engine"}):DelayByLength()
+Chapter:AddInstruction("ACF.SetPanelComboBox", {Name = "MainMenuCPanel", Choice = "V Engine"}):DelayByLength()
 Chapter:AddDelay(1)
-Chapter:AddInstruction("ACF.SetPanelComboBox", {Name = "MainMenuCPanel", Choice = "21.0L V12 Diesel"}):DelayByLength()
+Chapter:AddInstruction("ACF.SetPanelComboBox", {Name = "MainMenuCPanel", Choice = "V12"}):DelayByLength()
+Chapter:AddDelay(1)
+Chapter:AddInstruction("ACF.SetPanelComboBox", {Name = "MainMenuCPanel", Choice = "Generic Diesel Engine"}):DelayByLength()
+Chapter:AddDelay(1)
+Chapter:AddInstruction("ACF.SetPanelSlider", {Name = "MainMenuCPanel", SliderName = "#acf.menu.engines.displacement", Value = 21}):DelayByLength()
 Chapter:AddDelay(1)
 
 Chapter:AddDelay(Chapter:AddInstruction("Caption", {Text = "Press Mouse1 (Left Click) to spawn an engine."}))
 
 Chapter:AddInstruction("PlaceModel", {
     Name = "Engine1",
-    Model = "models/engines/v12l.mdl",
+    Model = "models/engines/v12m.mdl", -- The V12 layout's model
     Position = Vector(96, 0, 0),
     Angles = Angle(0, 0, 0),
 }):DelayByLength()

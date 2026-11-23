@@ -39,9 +39,6 @@ do -- Clientside settings
 		HitBox:SetConVar("acf_drawboxes")
 		Base:AddHelp("#acf.menu.settings.draw_hitbox_desc")
 
-		local MultTorque = Base:AddCheckBox("#acf.menu.settings.menu_multiplytorquemult")
-		MultTorque:SetConVar("acf_menu_multiplytorquemult")
-
 		local Rounds = Base:AddSlider("#acf.menu.settings.max_rounds", 0, ACF.MaxRoundsDrawn, 0)
 		Rounds:SetConVar("acf_maxroundsdrawn")
 
@@ -190,15 +187,14 @@ do -- Serverside settings
 
 		Base:AddSlider("#acf.menu.settings.general.fuel_factor"):              LinkToServerData("FuelFactor")
 		Base:AddSlider("#acf.menu.settings.general.max_driveshaft_angle"):     LinkToServerData("MaxDriveshaftAngle")
+		Base:AddSlider("#acf.menu.settings.general.rolling_resistance"):       LinkToServerData("RollingResistance")
+			Base:AddHelp("#acf.menu.settings.general.rolling_resistance_desc")
 
 		Base:AddCheckBox("#acf.menu.settings.general.crew_required"):         LinkToServerData("CrewRequired")
 		Base:AddHelp("#acf.menu.settings.general.crew_required_desc")
 
 		Base:AddCheckBox("#acf.menu.settings.general.crew_morale_deaths"):     LinkToServerData("CrewMoraleDeathEnabled")
 		Base:AddHelp("#acf.menu.settings.general.crew_morale_deaths_desc")
-
-		Base:AddSlider("#acf.menu.settings.general.torque_multiplier"):        LinkToServerData("TorqueMult")
-			Base:AddHelp("#acf.menu.settings.general.torque_multiplier_desc")
 
 		Base:AddSlider("#acf.menu.settings.general.smoke_wind"):               LinkToServerData("SmokeWind")
 			Base:AddHelp("#acf.menu.settings.general.smoke_wind_desc")

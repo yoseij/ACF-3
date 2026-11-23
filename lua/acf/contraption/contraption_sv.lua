@@ -399,6 +399,17 @@ do -- MARK: Recount on change
 	hook.Add("cfw.family.subbed", "ACF_MassRecount", FamilyChanged)
 end
 
+-- Its engines get the ratio of the mass their wheels have to move
+local function SetRatio(Con, PhysMass, TotMass)
+	Con.ACF_MassRatio = TotMass > 0 and PhysMass / TotMass or 1
+
+	if not Con.Engines then return end
+
+	for Engine in pairs(Con.Engines) do
+		if IsValid(Engine) then Engine:SetMassRatio(PhysMass, TotMass, Con.ACF_MassRatio) end
+	end
+end
+
 --- Recounts the entity's contraption unless it was counted recently: running engines and KE shoves both ask,
 --- and one count serves them all.
 --- @return table # What holds the count (ACF_PhysicalMass, ACF_TotalMass): the contraption, or the entity without one
@@ -419,6 +430,9 @@ function Contraption.CalcMassRatio(Ent, Tally)
 	local PseudoCon = Con or ACF.EntitiesToPseudoContraption({Ent})
 
 	local Power, Fuel, PhysN, ParN, ConN, OthN, TotMass, PhysMass = Contraption.CalcMassRatioFromContraption(PseudoCon, Tally)
+
+	-- Only a real contraption has engines to hand the ratio to, a pseudo one may be any selection of entities
+	if Con then SetRatio(Con, Con.ACF_PhysicalMass, Con.ACF_TotalMass) end
 
 	if not Con then -- Its own count, as there's no contraption to keep it
 		Ent.ACF_PhysicalMass = PseudoCon.ACF_PhysicalMass

@@ -30,6 +30,7 @@ end
 
 Classes.DefineClass("ACF.Gearboxes.Auto", "ACF.Gearboxes.BaseGearbox", function(CLASS)
 	CLASS.Name			= "Automatic"
+	CLASS.DrivetrainAdapter = "Automatic"
 	CLASS.CreateMenu	= ACF.AutomaticGearboxMenu
 	CLASS.CanSetGears 	= true
 	CLASS.Gears 		= {

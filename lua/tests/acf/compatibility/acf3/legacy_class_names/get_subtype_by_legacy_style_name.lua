@@ -38,7 +38,7 @@ return {
             func = function()
                 expect( ACF.GetSubtypeByLegacyStyleName( "ACF.Guns.BaseGun", "C" ) ).to.equal( ACF.Classes.GetTypeByName( "ACF.Guns.Cannon" ) )
                 expect( ACF.GetSubtypeByLegacyStyleName( "ACF.Guns.BaseGun", "40mmFGL" ) ).to.equal( ACF.Classes.GetTypeByName( "ACF.Guns.40mmFlareLauncher" ) )
-                expect( ACF.GetSubtypeByLegacyStyleName( "ACF.Engines.BaseEngine", "5.7-V8" ) ).to.equal( ACF.Classes.GetTypeByName( "ACF.Engines.5.7-V8" ) )
+                expect( ACF.GetSubtypeByLegacyStyleName( "ACF.Engines.BaseEngine", "V8" ) ).to.equal( ACF.Classes.GetTypeByName( "ACF.Engines.V8" ) )
             end
         },
 

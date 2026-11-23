@@ -3,6 +3,7 @@ local Classes     = ACF.Classes
 
 Classes.DefineClass("ACF.Gearboxes.BaseGearbox", function(CLASS)
     CLASS.Sound = "buttons/lever7.wav"
+    CLASS.DrivetrainAdapter = "Gearbox" -- Its entry in ACF.Mobility.Drivetrain.Adapters
     function CLASS.__inherited(NewClass)
         if not NewClass.LimitConVar then
             NewClass.LimitConVar = {

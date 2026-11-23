@@ -400,7 +400,8 @@ local function LinkResolvedEntity(Entity, Target, Options)
     local Resolved = ValidateEntity(Target, Options)
     local Linked, Reason = false, "Attempted to link to an invalid entity."
 
-    if IsValid(Resolved) then Linked, Reason = Entity:Link(Resolved) end
+    -- LinkMethod for links whose direction was saved
+    if IsValid(Resolved) then Linked, Reason = Entity[Options.LinkMethod or "Link"](Entity, Resolved) end
 
     if not Linked and Options.WarnOnLinkFail then
         ACF.Utilities.Notify.EntityWarning(Entity, (Entity.PrintName or Entity:GetClass()) .. ":PostEntityPaste failure", Reason)

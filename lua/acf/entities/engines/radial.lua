@@ -1,128 +1,41 @@
 local ACF     = ACF
 local Classes = ACF.Classes
-Classes.DefineClass("ACF.Engines.R7", "ACF.Engines.BaseEngine", function(CLASS)
-	CLASS.Name = "Radial 7 Engine"
+
+Classes.DefineClass("ACF.Engines.Radial", "ACF.Engines.BaseEngine", function(CLASS)
+	CLASS.Name        = "Radial Engine"
+	CLASS.Description = "#acf.descs.engines.radial"
+	CLASS.EngineTypes = { "ACF.EngineTypes.Radial", "ACF.EngineTypes.GenericDiesel" }
+	-- Diameter in m by litre, fitted to the Warner Scarab, Continental R-670 and Jacobs R-755 within 1%
+	CLASS.SizeLaw     = { 0.515, 0.306 }
+
+	MENU_FIELD("ACF.EngineTypes.BaseEngineType", "EngineType", { OnlyAllowSubtypes = true, InstantiateTypeForDefault = "ACF.EngineTypes.Radial" })
 end)
 
-do
-	Classes.DefineClass("ACF.Engines.3.8-R7", "ACF.Engines.R7", function(CLASS)
-		CLASS.Name		 = "3.8L R7 Petrol"
-		CLASS.Description	 = "#acf.descs.engines.r7.3_8"
-		CLASS.Model		 = "models/engines/radial7s.mdl"
-		CLASS.Sound		 = "acf_base/engines/r7_petrolsmall.wav"
-		CLASS.Fuel		 = { ["ACF.FuelTypes.Petrol"] = true }
-		CLASS.Type		 = "ACF.EngineTypes.Radial"
-		CLASS.Mass		 = 275
-		CLASS.Torque		 = 340
-		CLASS.FlywheelMass = 0.22
-		CLASS.RPM = {
-			Idle	= 700,
-			Limit	= 4800,
+do -- Radial 7
+	Classes.DefineClass("ACF.Engines.R7", "ACF.Engines.Radial", function(CLASS)
+		CLASS.Name       = "Radial 7"
+		CLASS.Order      = 1
+		CLASS.Cylinders  = 7
+		CLASS.MassFactor = 0.6 -- For a type not built as one of these, a diesel radial stays an aero engine
+		CLASS.Model      = { Model = "models/engines/radial7m.mdl", Footprint = 0.963, Volume = 0.3295, FOV = 105 }
+		CLASS.Sounds     = {
+			{ Size = 3.80, Sound = "acf_base/engines/r7_petrolsmall.wav", Sounds = { GenericDiesel = "acf_base/engines/r7_petrolmedium.wav", Radial = "acf_base/engines/r7_petrolsmall.wav" } },
+			{ Size = 9.38, Sound = "acf_base/engines/r7_petrolmedium.wav", Sounds = { GenericDiesel = "acf_base/engines/r7_petrolmedium.wav", Radial = "acf_base/engines/r7_petrolmedium.wav" } },
+			{ Size = 24.00, Sound = "acf_base/engines/r7_petrollarge.wav", Sounds = { GenericDiesel = "acf_base/engines/r7_petrolmedium.wav", Radial = "acf_base/engines/r7_petrollarge.wav" } },
 		}
-		CLASS.Preview = {
-			FOV = 105,
-		}
-	end)
 
-	Classes.DefineClass("ACF.Engines.11.0-R7", "ACF.Engines.R7", function(CLASS)
-		CLASS.Name		 = "11.0L R7 Petrol"
-		CLASS.Description	 = "#acf.descs.engines.r7.11_0"
-		CLASS.Model		 = "models/engines/radial7m.mdl"
-		CLASS.Sound		 = "acf_base/engines/r7_petrolmedium.wav"
-		CLASS.Fuel		 = { ["ACF.FuelTypes.Petrol"] = true }
-		CLASS.Type		 = "ACF.EngineTypes.Radial"
-		CLASS.Mass		 = 460
-		CLASS.Torque		 = 647
-		CLASS.FlywheelMass = 0.45
-		CLASS.RPM = {
-			Idle	= 600,
-			Limit	= 4000,
-		}
-		CLASS.Preview = {
-			FOV = 105,
-		}
-	end)
-
-	Classes.DefineClass("ACF.Engines.8.0-R7", "ACF.Engines.R7", function(CLASS)
-		CLASS.Name		 = "8.0L R7 Diesel"
-		CLASS.Description	 = "#acf.descs.engines.r7.8_0"
-		CLASS.Model		 = "models/engines/radial7m.mdl"
-		CLASS.Sound		 = "acf_base/engines/r7_petrolmedium.wav"
-		CLASS.Fuel		 = { ["ACF.FuelTypes.Petrol"] = true, ["ACF.FuelTypes.Diesel"] = true }
-		CLASS.Type		 = "ACF.EngineTypes.GenericDiesel"
-		CLASS.Mass		 = 525
-		CLASS.Torque		 = 937
-		CLASS.FlywheelMass = 1
-		CLASS.RPM = {
-			Idle	= 400,
-			Limit	= 2800,
-		}
-		CLASS.Preview = {
-			FOV = 105,
-		}
-	end)
-
-	Classes.DefineClass("ACF.Engines.24.0-R7", "ACF.Engines.R7", function(CLASS)
-		CLASS.Name		 = "24.0L R7 Petrol"
-		CLASS.Description	 = "#acf.descs.engines.r7.24_0"
-		CLASS.Model		 = "models/engines/radial7l.mdl"
-		CLASS.Sound		 = "acf_base/engines/r7_petrollarge.wav"
-		CLASS.Fuel		 = { ["ACF.FuelTypes.Petrol"] = true }
-		CLASS.Type		 = "ACF.EngineTypes.Radial"
-		CLASS.Mass		 = 960
-		CLASS.Torque		 = 1982
-		CLASS.FlywheelMass = 3.4
-		CLASS.RPM = {
-			Idle	= 750,
-			Limit	= 2650,
-		}
-		CLASS.Preview = {
-			FOV = 105,
-		}
+		MENU_FIELD("Number", "Displacement", { Min = 3.80, Max = 24.00, Default = 9.50, Decimals = 2 })
 	end)
 end
 
-ACF.SetCustomAttachment("models/engines/radial7l.mdl", "driveshaft", Vector(-12), Angle(0, 180, 90))
-ACF.SetCustomAttachment("models/engines/radial7m.mdl", "driveshaft", Vector(-8), Angle(0, 180, 90))
-ACF.SetCustomAttachment("models/engines/radial7s.mdl", "driveshaft", Vector(-6), Angle(0, 180, 90))
-
--- Bunch of stuff to make it easier in the future to add radials
-local Pistons    = 7
-local PistonSize = Vector(6, 6, 10) -- Size of each piston
-local PistonPos  = Vector(0, 0, -9) -- Position of the first piston
-local AngleAxis  = Angle(0, 0, 1)
-local Models = {
-	{ Model = "models/engines/radial7l.mdl", Scale = 2 },
-	{ Model = "models/engines/radial7m.mdl", Scale = 1.33 },
-	{ Model = "models/engines/radial7s.mdl", Scale = 1 },
-}
-
-local function GeneratePistons(Hitboxes, Scale)
-	local Rotation = 360 / Pistons
-	local AddAngle = AngleAxis * Rotation
-
-	for I = 1, Pistons do
-		Hitboxes["Piston" .. I] = {
-			Pos   = PistonPos * Scale,
-			Scale = PistonSize * Scale,
-			Angle = AddAngle * (I - 1),
-		}
-
-		PistonPos:Rotate(AddAngle)
-	end
-end
-
-for _, Data in ipairs(Models) do
-	local Scale = Data.Scale
-	local Hitboxes = {
-		Shaft = {
-			Pos       = Vector(-0.5, 0, 0) * Scale,
-			Scale     = Vector(10, 8.5, 8.5) * Scale,
-			Sensitive = true
-		}
-	}
-
-	GeneratePistons(Hitboxes, Scale)
-
-	ACF.AddHitboxes(Data.Model, Hitboxes)
-end
+-- The toolgun's outline of each layout's model at scale 1; engines scale them with themselves
+ACF.AddHitboxes("models/engines/radial7m.mdl", {
+	Shaft   = { Pos = Vector(-0.665), Scale = Vector(13.3, 11.305, 11.305), Sensitive = true },
+	Piston1 = { Pos = Vector(0, 0, -11.97), Scale = Vector(7.98, 7.98, 13.3), Angle = Angle(0, 0, 0) },
+	Piston2 = { Pos = Vector(0, 9.359, -7.463), Scale = Vector(7.98, 7.98, 13.3), Angle = Angle(0, 0, 51.429) },
+	Piston3 = { Pos = Vector(0, 11.67, 2.664), Scale = Vector(7.98, 7.98, 13.3), Angle = Angle(0, 0, 102.857) },
+	Piston4 = { Pos = Vector(0, 5.194, 10.785), Scale = Vector(7.98, 7.98, 13.3), Angle = Angle(0, 0, 154.286) },
+	Piston5 = { Pos = Vector(0, -5.194, 10.785), Scale = Vector(7.98, 7.98, 13.3), Angle = Angle(0, 0, 205.714) },
+	Piston6 = { Pos = Vector(0, -11.67, 2.664), Scale = Vector(7.98, 7.98, 13.3), Angle = Angle(0, 0, 257.143) },
+	Piston7 = { Pos = Vector(0, -9.359, -7.463), Scale = Vector(7.98, 7.98, 13.3), Angle = Angle(0, 0, 308.571) },
+})

@@ -1,6 +1,6 @@
 local Overlay = ACF.Overlay
 
-local function GetNum(Slot) return math.Round(Slot.Data[2] * (GetConVar("acf_menu_multiplytorquemult"):GetBool() and (ACF.GetServerData("TorqueMult") or 1) or 1)) end
+local function GetNum(Slot) return math.Round(Slot.Data[2]) end
 
 do
     local ELEMENT = {}

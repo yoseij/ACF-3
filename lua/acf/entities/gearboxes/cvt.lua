@@ -20,6 +20,7 @@ end
 
 Classes.DefineClass("ACF.Gearboxes.CVT", "ACF.Gearboxes.BaseGearbox", function(CLASS)
 	CLASS.Name		= "CVT"
+	CLASS.DrivetrainAdapter = "CVT"
 	CLASS.CreateMenu	= ACF.CVTGearboxMenu
 	CLASS.Gears = {
 		Min		= 0,
