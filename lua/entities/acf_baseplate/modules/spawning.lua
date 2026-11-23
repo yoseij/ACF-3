@@ -5,6 +5,8 @@ local Con = ACF.Contraption
 function ENT:ACF_PostUpdateEntityData()
 	self.BaseplateSize = Vector(self:ACF_GetUserVar("Length"), self:ACF_GetUserVar("Width"), self:ACF_GetUserVar("Thickness"))
 	self:SetSize(self.BaseplateSize)
+	Con.ClearDefaultDamping({ self }) -- Resizing makes a new physics object
+
 	local BPTypeInst = self:ACF_GetUserVar("BaseplateType")
 	if BPTypeInst and BPTypeInst.OnInitialize then
 		BPTypeInst:OnInitialize(self)
@@ -98,7 +100,9 @@ function ENT:ACF_PostSpawn(Owner, _, _, ClientData)
 	end)
 end
 
-function ENT:PostEntityPaste()
+function ENT:PostEntityPaste(_, _, CreatedEntities)
+	Con.ClearPastedDamping(CreatedEntities)
+
 	if not self:ACF_GetUserVar("AlreadyHasSeat") then return end
 
 	local Owner = self:CPPIGetOwner()
