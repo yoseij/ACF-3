@@ -1794,7 +1794,7 @@ if SERVER then
 		return math.Round(Fuel, 2)
 	end
 
-	--- Returns the amount of fuel in an ACF fuel tank or available to an engine as a percentage of capacity
+	--- Returns the amount of fuel in an ACF fuel tank or linked to an engine as a percentage of capacity
 	-- @server
 	-- @return number The fuel percentage
 	function ents_methods:acfFuelLevel()
@@ -1819,6 +1819,8 @@ if SERVER then
 			Capacity = Capacity + Tank.Capacity
 			Fuel = Fuel + Tank.Amount
 		end
+
+		if Capacity == 0 then return 0 end -- No tanks linked
 
 		return math.Round(Fuel / Capacity, 2)
 	end

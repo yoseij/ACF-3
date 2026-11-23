@@ -28,7 +28,7 @@ local ELECTRIC = {
 local function Rig( Kind, Fields, Load )
     local EntTbl = {
         Adapter = "Engine", Active = true, Firing = true, Cranking = false, StarterClock = 0, Spool = 0, GasGenerator = 0, Regen = 0,
-        revLimiterEnabled = true, Throttle = 0, FuelUsage = 0, FuelTanks = {},
+        revLimiterEnabled = true, Throttle = 0, FuelUsage = 0, ACF_LiveData = { FuelTanks = {} },
         ConsumeFuel = function() return true end,
     }
 
@@ -600,7 +600,7 @@ return {
             name = "Once its battery is full, regen charges another one linked to it",
             func = function()
                 local Full, Empty    = Battery( 1 ), Battery( 0 )
-                local Step, _, Shaft = Rig( ELECTRIC, { Regen = 1, FuelTank = Full, FuelTanks = { [Full] = true, [Empty] = true } } )
+                local Step, _, Shaft = Rig( ELECTRIC, { Regen = 1, FuelTank = Full, ACF_LiveData = { FuelTanks = { [Full] = true, [Empty] = true } } } )
 
                 Shaft.Omega = 300
 

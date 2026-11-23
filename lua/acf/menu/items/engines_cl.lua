@@ -354,7 +354,7 @@ ACF.Menu.RegisterPage({
 	Actions = {
 		{ Bind = "left",       Context = "Engine", Preview = true, Desc = "Spawn a new engine, or update the one you're aiming at." },
 		{ Bind = "shift+left", Context = "Fuel",   Preview = true, Desc = "Spawn a new fuel tank, or update the one you're aiming at." },
-		{ Bind = "right",      Commit = "link", Desc = "Select gearboxes, then an engine, to link them (hold R to unlink)." },
+		{ Bind = "right",      Commit = "link", Desc = "Select gearboxes or fuel tanks, then an engine, to link them (hold R to unlink)." },
 	},
 
 	Build = Build,

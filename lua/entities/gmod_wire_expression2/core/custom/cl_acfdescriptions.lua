@@ -83,8 +83,8 @@ E2Desc["acfSteerRate(e:n)"] = "Sets the steer ratio for an ACF entity. Only work
 E2Desc["acfHoldGear(e:n)"] = "Set to 1 to stop an ACF entity's upshifting. Only works for automatic gearboxes."
 E2Desc["acfShiftPointScale(e:n)"] = "Sets the shift point scale for an ACF entity. Only works with automatic gearboxes."
 
-E2Desc["acfFuel(e:)"] = "Returns the remaining liters of fuel or kilowatt hours in an ACF fuel tank, or available to an engine."
-E2Desc["acfFuelLevel(e:)"] = "Returns the percent remaining fuel in an ACF fuel tank, or available to an engine."
+E2Desc["acfFuel(e:)"] = "Returns the remaining liters of fuel or kilowatt hours in an ACF fuel tank, or linked to an engine."
+E2Desc["acfFuelLevel(e:)"] = "Returns the percent remaining fuel in an ACF fuel tank, or linked to an engine."
 E2Desc["acfRefuelDuty(e:)"] = "Sets an ACF fuel tank on refuel duty, causing it to supply other fuel tanks with fuel."
 E2Desc["acfDisableRevLimiter(e:n)"] = "Disables the rev limiter on an ACF engine."
 E2Desc["acfFuelUse(e:)"] = "Returns the current fuel consumption of an ACF entity in liters per minute or kilowatts."

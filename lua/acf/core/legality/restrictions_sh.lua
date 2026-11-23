@@ -125,21 +125,14 @@ do -- MARK: Core restrictions
 end
 
 do -- MARK: Parenting restrictions
-	-- Being parented to a baseplate also makes the engine part of a contraption
+	-- Any parent or constraint will do, what matters is that the engine belongs to a contraption
 	Register("engine_parent", {
 		Title  = "Parenting Issue",
-		Detail = "Must be parented to a baseplate.",
-		Help   = "Parent the engine to the baseplate.",
+		Detail = "Must be part of a contraption.",
+		Help   = "Parent or constrain the engine to the vehicle.",
 	}, {
 		Applies = function(_, EntTbl) return EntTbl.IsACFEngine and EntTbl.Active and not ACF.AllowArbitraryParents end,
-		Check   = function(_, EntTbl) return EntTbl.ACF_EngineParentValid end,
-		Draw    = function(Debug, Entity, _, Life)
-			local Parent = Entity:GetParent()
-			if not IsValid(Parent) then return end
-
-			Debug.EntityLine(Entity, Parent, Life, COLOR_DISABLE, true)
-			Debug.EntityText(Parent, 0, "Must be the baseplate", Life, COLOR_DISABLE)
-		end,
+		Check   = function(Entity) return Entity:CFW_GetContraption() ~= nil end,
 	})
 
 	local CHAIN_LINKS = { acf_turret = true, acf_turret_rotator = true }

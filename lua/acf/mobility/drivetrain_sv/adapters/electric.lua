@@ -81,14 +81,14 @@ end
 local function FindChargeTank(self, EntTbl)
 	local Tank = self.ChargeTank
 
-	-- Unless that battery is no longer one of its tanks
-	if CanCharge(Tank) and EntTbl.FuelTanks[Tank] then return Tank end
+	-- Unless that battery was unlinked since
+	if CanCharge(Tank) and EntTbl.ACF_LiveData.FuelTanks[Tank] then return Tank end
 
 	Tank = EntTbl.FuelTank
 
 	if CanCharge(Tank) then return Tank end
 
-	for Other in pairs(EntTbl.FuelTanks) do
+	for Other in pairs(EntTbl.ACF_LiveData.FuelTanks) do
 		if CanCharge(Other) then return Other end
 	end
 

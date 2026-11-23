@@ -67,12 +67,12 @@ do
 		RecacheBindNW(self, SelfTbl, "AHS_Speed", math.Round(SelfTbl.Speed or 0), self.SetNWInt)
 		if IsValid(SelfTbl.ACF_LiveData.Gearbox) then RecacheBindNW(self, SelfTbl, "AHS_Gear", SelfTbl.ACF_LiveData.Gearbox.Gear, self.SetNWInt) end
 
-		-- Read live: engines' tanks follow parenting, which can change after the drivetrain was analyzed
+		-- Read live: fuel links can change after the drivetrain was analyzed
 		local FuelLevel, FuelCapacity = 0, 0
 		local Conv = self:GetFuelUnit() == 0 and 1 or 0.264172 -- Liters / Gallons
 		for Engine in pairs(SelfTbl.Engines) do
 			if IsValid(Engine) then
-				for Fuel in pairs(Engine.FuelTanks) do
+				for Fuel in pairs(Engine.ACF_LiveData.FuelTanks) do
 					if not CountedFuels[Fuel] then
 						CountedFuels[Fuel] = true
 						FuelLevel    = FuelLevel + Fuel.Amount

@@ -137,7 +137,33 @@ do -- MARK: Linking
 		return true, "Wheel linked successfully!"
 	end
 
+	-- A fuel link carries no torque, so only the fuel and the distance between them matter
+	local function LinkFuelTank(Engine, Tank)
+		local Tanks = Engine:ACF_GetUserVar("FuelTanks")
+
+		if Tanks[Tank] then return false, "This engine is already linked to this fuel tank!" end
+		if not Engine.FuelTypes[Tank.FuelType] then
+			return false, "Cannot link because fuel type is incompatible."
+		end
+		if TooFar(Engine, Tank) then return false, "This fuel tank is too far away from this engine!" end
+
+		Tanks[Tank]          = true
+		Tank.Engines[Engine] = true
+
+		Mobility.BrokenLinks.Clear(Engine, Tank)
+		Mobility.Fuel.Refresh(Engine)
+		Mobility.Fuel.Notify(Tank)
+
+		Engine:UpdateOverlay()
+		Engine:InvalidateClientInfo()
+		Tank:UpdateOverlay()
+		Tank:InvalidateClientInfo()
+
+		return true, "Engine linked successfully!"
+	end
+
 	ACF.RegisterClassLink("acf_engine", "acf_gearbox", LinkGearbox)
+	ACF.RegisterClassLink("acf_engine", "acf_fueltank", LinkFuelTank)
 
 	ACF.RegisterClassLink("acf_engine", "acf_engine", LinkCrank)
 	ACF.RegisterClassLink("acf_engine", "prop_physics", LinkWheel)
@@ -153,6 +179,26 @@ do -- MARK: Linking
 		Gearbox.Engines[Engine] = nil
 
 		Refresh(Engine, Gearbox)
+
+		return true, "Engine unlinked successfully!"
+	end)
+
+	ACF.RegisterClassUnlink("acf_engine", "acf_fueltank", function(Engine, Tank)
+		local Tanks = Engine:ACF_GetUserVar("FuelTanks")
+
+		if not Tanks[Tank] then return false, "This engine is not linked to this fuel tank." end
+
+		Tanks[Tank]          = nil
+		Tank.Engines[Engine] = nil
+
+		if Engine.FuelTank == Tank then Engine.FuelTank = nil end
+
+		Mobility.Fuel.Refresh(Engine)
+
+		Engine:UpdateOverlay()
+		Engine:InvalidateClientInfo()
+		Tank:UpdateOverlay()
+		Tank:InvalidateClientInfo()
 
 		return true, "Engine unlinked successfully!"
 	end)
@@ -219,12 +265,12 @@ local SOUND_FADE   = 0.4
 -- Volume change worth sending on its own, as at a steady speed only the load changes it
 local VOLUME_DELTA = 0.02
 
--- Only called when the cached tank is unusable, so a linear scan over the (small) sibling set is fine
+-- Only called when the cached tank is unusable, so a linear scan over the (small) linked set is fine
 local function FindFuelTank(EngineTbl)
 	local MinPriority = ACF.FuelPriorityMin
 	local Best, BestPriority
 
-	for Tank in pairs(EngineTbl.FuelTanks) do
+	for Tank in pairs(EngineTbl.ACF_LiveData.FuelTanks) do
 		local TankTbl  = ENTITY.GetTable(Tank)
 		local Priority = TankTbl.FuelPriority
 
@@ -270,6 +316,17 @@ local function CheckLinks(Engine)
 	-- Both engines share the link, which points at one crank only
 	for Ent, Link in pairs(Live.Cranks) do CheckLink(Engine, Ent, Link, Ent.Out, Ent.Out.Pos) end
 	for Ent, Link in pairs(Live.Wheels) do CheckLink(Engine, Ent, Link, nil, Link:GetTargetPos()) end
+
+	local EnginePos = Engine:GetPos()
+
+	for Tank in pairs(Live.FuelTanks) do
+		if EnginePos:DistToSqr(Tank:GetPos()) > MaxDistance then
+			Engine:Unlink(Tank)
+			BrokenLinks.Add(Engine, Tank, "Excessive distance", Vector(), Vector())
+			Notify.EntityWarning(Engine, "Fuel link broken", "Excessive distance!",
+				ACF.Diagnostics.Get("link_broken").Ponder)
+		end
+	end
 end
 
 
@@ -417,7 +474,6 @@ do -- Spawn and Update functions
 		self.LBrake            = 0 -- Read by its wheels as a gearbox's is, on the side they're linked to
 		self.RBrake            = 0
 		self.RegenTorque       = 0
-		self.FuelTanks         = {}
 		self.DriverCrewMod     = ACF.CrewFallbackCoef
 		self.MassRatio         = 1
 		self.FuelUsage         = 0
@@ -467,9 +523,8 @@ do -- Spawn and Update functions
 		for _, Gearbox in ipairs(table.GetKeys(Live.Gearboxes)) do self:Unlink(Gearbox) self:Link(Gearbox) end
 		for _, Other in ipairs(table.GetKeys(Live.Cranks)) do self:Unlink(Other) self:Link(Other) end
 		for _, Wheel in ipairs(table.GetKeys(Live.Wheels)) do self:Unlink(Wheel) self:Link(Wheel) end
-
-		-- Supported fuel types may have changed (no-op on a fresh spawn, which isn't parented yet)
-		if self.ACF_FuelParent then Fuel.Join(self) end
+		-- Its fuel types may have changed
+		for _, Tank in ipairs(table.GetKeys(Live.FuelTanks)) do self:Unlink(Tank) self:Link(Tank) end
 
 		Fuel.Refresh(self)
 		self:UpdateLinkHints()
@@ -482,7 +537,7 @@ do -- Spawn and Update functions
 		if Type and Type.SetupInputs then Type.SetupInputs(self, Inputs) end
 	end
 
-	ACF.RegisterLinkSource("acf_engine", "FuelTanks")
+	ACF.RegisterLinkSource("acf_engine", "FuelTanks", nil, true)
 	ACF.RegisterLinkSource("acf_engine", "Gearboxes", nil, true)
 	ACF.RegisterLinkSource("acf_engine", "Cranks", nil, true)
 	ACF.RegisterLinkSource("acf_engine", "Wheels", nil, true)
@@ -672,16 +727,6 @@ function ENT:DestroySound()
 	self.LastVolume = 0
 	self.SoundLevel = 0
 	self.Sound      = nil
-end
-
-function ENT:CFW_PreParentedTo(_, NewParent)
-	local ParentValid = IsValid(NewParent) and NewParent:GetClass() == "acf_baseplate"
-	self.ACF_EngineParentValid = ParentValid
-end
-
-function ENT:CFW_OnParentedTo()
-	Fuel.Join(self)
-	self:UpdateOverlay()
 end
 
 hook.Add("cfw.contraption.entityAdded", "ACF_Engine_ContraptionChecks", function(Contraption, Ent)
@@ -884,8 +929,6 @@ function ENT:OnRemove(IsFullUpdate)
 
 	self:DestroySound()
 
-	Fuel.Leave(self)
-
 	-- Here rather than in the generic unlink after this, so its wheels no longer count it as driving them
 	for _, Wheel in ipairs(table.GetKeys(self.ACF_LiveData.Wheels or {})) do
 		self:Unlink(Wheel)
@@ -925,7 +968,7 @@ do	-- NET SURFER 2.0
 			-- A shared link points at one end only
 			for E in pairs(Live.Cranks) do Outputs[#Outputs + 1] = { E:EntIndex(), E.Out.Pos } end
 
-			for E in pairs(Entity.FuelTanks) do FuelTanks[#FuelTanks + 1] = E:EntIndex() end
+			for E in pairs(Live.FuelTanks) do FuelTanks[#FuelTanks + 1] = E:EntIndex() end
 
 			net.Start("ACF_RequestEngineInfo")
 				ACF.WriteEntity(Entity)

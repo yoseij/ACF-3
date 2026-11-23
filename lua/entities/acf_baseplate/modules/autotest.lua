@@ -310,13 +310,35 @@ end, "Ensure all ground loaders are linked to racks and ammo crates")
 
 RegisterTest("Links", "Engines, Fuel and Gearboxes", "Links/Drivetrain", Severity.Functional, function(Env)
     local Faults = {}
-    for _, e in ipairs(GetEntsMissingLinks(Env.Contraption.entsbyclass.acf_fueltank, {"Engines"})) do table.insert(Faults, {Ent = e, Msg = "Fuel Tank shares no parent with a compatible engine"}) end
-    for _, e in ipairs(GetEntsMissingLinks(Env.Contraption.entsbyclass.acf_engine, {"FuelTanks"})) do table.insert(Faults, {Ent = e, Msg = "Engine shares no parent with a compatible fuel tank"}) end
+    for _, e in ipairs(GetEntsMissingLinks(Env.Contraption.entsbyclass.acf_fueltank, {"Engines"})) do table.insert(Faults, {Ent = e, Msg = "Fuel Tank needs link to Engine"}) end
+    for _, e in ipairs(GetEntsMissingLinks(Env.Contraption.entsbyclass.acf_engine, {"FuelTanks"})) do table.insert(Faults, {Ent = e, Msg = "Engine needs link to Fuel Tank"}) end
     for _, e in ipairs(GetEntsMissingLinks(Env.Contraption.entsbyclass.acf_engine, {"Gearboxes"})) do table.insert(Faults, {Ent = e, Msg = "Engine needs link to Gearbox"}) end
     for _, e in ipairs(GetEntsMissingLinks(Env.Contraption.entsbyclass.acf_gearbox, {"GearboxIn", "Engines"})) do table.insert(Faults, {Ent = e, Msg = "Gearbox missing Input link"}) end
     for _, e in ipairs(GetEntsMissingLinks(Env.Contraption.entsbyclass.acf_gearbox, {"GearboxOut", "Wheels", "Effectors"})) do table.insert(Faults, {Ent = e, Msg = "Gearbox missing Output link"}) end
     return #Faults == 0, Faults
-end, nil, "Ensure engines share a parent with compatible fuel tanks, engines are linked to gearboxes, and all gearboxes have proper input and output links")
+end, function(Env)
+    -- Unlinked engines and tanks pair up among themselves first, so tanks split between engines on purpose
+    -- stay as they are; only what is still unlinked after that takes any it can. A refused link is silent, so
+    -- every pair is tried
+    local Classes     = Env.Contraption.entsbyclass
+    local Engines     = Classes.acf_engine or {}
+    local Tanks       = Classes.acf_fueltank or {}
+    local LoneEngines = GetEntsMissingLinks(Engines, {"FuelTanks"})
+    local LoneTanks   = GetEntsMissingLinks(Tanks, {"Engines"})
+
+    for _, Engine in ipairs(LoneEngines) do
+        for _, Tank in ipairs(LoneTanks) do Engine:Link(Tank) end
+    end
+
+    for _, Engine in ipairs(GetEntsMissingLinks(Engines, {"FuelTanks"})) do
+        for Tank in pairs(Tanks) do Engine:Link(Tank) end
+    end
+
+    for _, Tank in ipairs(GetEntsMissingLinks(Tanks, {"Engines"})) do
+        for Engine in pairs(Engines) do Engine:Link(Tank) end
+    end
+end, "Ensure engines are linked to fuel tanks and gearboxes, and all gearboxes have proper input and output " ..
+    "links. The fix only links fuel tanks")
 
 RegisterTest("Baseplate", "Orientation", "Baseplate/Orientation", Severity.Functional, function(Env)
     local Deviation = math.deg(math.acos(Env.Baseplate:GetForward():Dot(Vector(0, 1, 0))))

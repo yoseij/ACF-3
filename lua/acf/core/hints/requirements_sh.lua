@@ -326,36 +326,11 @@ do -- MARK: Mobility requirements
 		end,
 	})
 
-	-- Data.Parent is the engine's parent, where a tank has to go
 	Register("engine_no_fuel", {
 		Title  = "Fuel tank",
-		Detail = function(Data)
-			if not Data.Parent then return "The engine is not parented" end
-
-			return "No fuel tank shares this engine's parent"
-		end,
-		Help   = "Parent a fuel tank the engine can use to the same entity as the engine.",
+		Detail = "No fuel tank is linked to this engine",
+		Help   = "Link this engine to a fuel tank holding a fuel it burns, or let the baseplate's auto-test link them.",
 		Ponder = "acf.tankbasics.drivetrain",
-	}, {
-		Draw = function(Debug, Entity, Data, Life)
-			DrawRelated(Debug, Entity, Data.Parent, "Parent a fuel tank here", Life)
-		end,
-	})
-
-	-- Data.Tanks lists the tanks sharing the engine's parent, Data.Types names the fuels the engine takes
-	Register("engine_fuel_type", {
-		Title  = "Fuel type",
-		Detail = function(Data)
-			return "Wrong fuel, needs " .. (Data.Types or "another fuel")
-		end,
-		Help   = "Change the marked tanks to a fuel type this engine can use, or add a tank that has one.",
-		Ponder = "acf.tankbasics.drivetrain",
-	}, {
-		Draw = function(Debug, Entity, Data, Life)
-			for _, Tank in ipairs(Data.Tanks or {}) do
-				if IsValid(Tank) then DrawRelated(Debug, Entity, Tank, tostring(Tank.FuelType), Life, COLOR_BAD) end
-			end
-		end,
 	})
 
 	local COLOR_LEFT = Color(80, 160, 255)

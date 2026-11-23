@@ -93,12 +93,17 @@ do -- Updating
 		WireLib.TriggerOutput(self, "Fuel", self.Amount)
 		WireLib.TriggerOutput(self, "Capacity", self.Capacity)
 
-		-- Fuel type or priority may have changed (no-op on a fresh spawn, which isn't parented yet)
-		if self.ACF_FuelParent then Fuel.Join(self) end
-	end
+		-- Fuel type or priority may have changed (no-op on a fresh spawn, which has no links yet)
+		for _, Engine in ipairs(table.GetKeys(self.Engines)) do
+			if not Engine.FuelTypes[self.FuelType] then
+				Engine:Unlink(self)
+			elseif Engine.FuelTank == self then
+				-- Another tank may come first now, and Notify only moves engines towards this one
+				Engine.FuelTank = nil
+			end
+		end
 
-	function ENT:CFW_OnParentedTo()
-		Fuel.Join(self)
+		Fuel.Notify(self)
 	end
 end
 
@@ -146,7 +151,7 @@ end
 function ENT:OnRemove(IsFullUpdate)
 	if IsFullUpdate then return end
 
-	Fuel.Leave(self)
+	for _, Engine in ipairs(table.GetKeys(self.Engines)) do Engine:Unlink(self) end
 
 	ActiveTanks[self] = nil
 end

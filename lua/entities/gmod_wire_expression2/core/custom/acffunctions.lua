@@ -912,7 +912,7 @@ e2function number entity:acfFuel()
 	return Round(Fuel, 2)
 end
 
--- Returns the amount of fuel in an ACF fuel tank or available to an engine as a percentage of capacity
+-- Returns the amount of fuel in an ACF fuel tank or linked to an engine as a percentage of capacity
 e2function number entity:acfFuelLevel()
 	if not IsACFEntity(this) then return 0 end
 	if RestrictInfo(self, this) then return 0 end
@@ -928,6 +928,8 @@ e2function number entity:acfFuelLevel()
 		Fuel = Fuel + Tank.Amount
 		Capacity = Capacity + Tank.Capacity
 	end
+
+	if Capacity == 0 then return 0 end -- No tanks linked
 
 	return Round(Fuel / Capacity, 2)
 end

@@ -7,6 +7,8 @@ ACF.Entities.AutoRegister(2026111101, function(CLASS)
 	LINKED_ENTITY_ARRAY_FIELD("Gearboxes", {AcceptableClasses = {acf_gearbox = true}})
 	LINKED_ENTITY_ARRAY_FIELD("Cranks",    {AcceptableClasses = {acf_engine = true}})
 	LINKED_ENTITY_ARRAY_FIELD("Wheels")
+	-- Else a pasted engine just won't run
+	LINKED_ENTITY_ARRAY_FIELD("FuelTanks", {AcceptableClasses = {acf_fueltank = true}, WarnOnLinkFail = true})
 
 	function CLASS:VerifyData()
 		self.Engine:VerifyData()
