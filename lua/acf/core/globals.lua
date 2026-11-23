@@ -219,6 +219,7 @@ do -- ACF global vars
 	ACF.NmToFtLb             = 0.73756 -- Newton meters to foot-pounds
 	ACF.KwToHp               = 1.341 -- Kilowatts to horsepower
 	ACF.LToGal               = 0.264172 -- Liters to gallons
+	ACF.RPMToRadS            = math.pi / 30 -- Revolutions per minute to radians per second
 
 	-- Fuzes
 	ACF.MinFuzeCaliber       = 25 -- Minimum caliber in millimeters that can be fuzed
