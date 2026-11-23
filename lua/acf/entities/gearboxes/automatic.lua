@@ -2,14 +2,10 @@ local ACF       = ACF
 local Classes   = ACF.Classes
 
 -- Weight
-local Gear3SW = 60
+local Gear3SW = 95 -- About 7 N·m per kg, between the ZF 8HP70 and Allison's 1000-4000 series
 
 -- Torque Rating
-local Gear3ST = 900
-
--- Straight through bonuses
-local StWB = 0.75 --straight weight bonus mulitplier
-local StTB = 1.25 --straight torque bonus multiplier
+local Gear3ST = 662
 
 -- Shift Time
 local ShiftS = 0.25
@@ -30,6 +26,8 @@ end
 
 Classes.DefineClass("ACF.Gearboxes.Auto", "ACF.Gearboxes.BaseGearbox", function(CLASS)
 	CLASS.Name			= "Automatic"
+	-- Its own shifting, over a manual's
+	CLASS.Cost			= { Base = 1, PerGear = 0.15, PerKNm = 0.6, Exponent = 0.5 }
 	CLASS.DrivetrainAdapter = "Automatic"
 	CLASS.CreateMenu	= ACF.AutomaticGearboxMenu
 	CLASS.CanSetGears 	= true
@@ -159,9 +157,9 @@ do -- Scalable Gearboxes
 		CLASS.Description	= "A straight-through gearbox capable of automatically shifting gears based on speed."
 		CLASS.ID			= "Auto-ST"
 		CLASS.Model			= "models/engines/t5small.mdl"
-		CLASS.Mass			= math.floor(Gear3SW * StWB)
+		CLASS.Mass			= Gear3SW
 		CLASS.Switch		= ShiftS
-		CLASS.MaxTorque		= math.floor(Gear3ST * StTB)
+		CLASS.MaxTorque		= Gear3ST
 		CLASS.Preview = {
 			FOV = 105,
 		}

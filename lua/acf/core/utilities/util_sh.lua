@@ -193,24 +193,44 @@ do -- Mobility functions
 	--- @param BaseMass number The base mass value of the gearbox
 	--- @param Scale number The scale value of the gearbox
 	--- @param MaxTorque number The maximum torque value of the gearbox
-	--- @param GearCount number The number of gears present in the gearbox
 	--- @return number # The mass of the gearbox
 	--- @return number # The torque value of the gearbox in ft-lb
 	--- @return number # The torque rating of the gearbox in N/m
-	function ACF.GetGearboxStats(BaseMass, Scale, MaxTorque, GearCount)
+	function ACF.GetGearboxStats(BaseMass, Scale, MaxTorque)
 		local Mass = math.Round(BaseMass * (Scale ^ ACF.GearboxMassScale))
 
 		-- Torque calculations
 		local Torque, TorqueRating = 0, 0
 
-		if MaxTorque and GearCount then
-			local TorqueLoss = MaxTorque * (ACF.GearEfficiency ^ GearCount)
+		if MaxTorque then
 			local ScalingCurve = Scale ^ ACF.GearboxTorqueScale
-			TorqueRating = math.floor((TorqueLoss * ScalingCurve) / 10) * 10 -- Round to the nearest ten
+			TorqueRating = math.floor((MaxTorque * ScalingCurve) / 10) * 10 -- Round to the nearest ten
 			Torque = math.Round(TorqueRating * ACF.NmToFtLb)
 		end
 
 		return Mass, Torque, TorqueRating
+	end
+
+	--- @param Class table The gearbox's group class, which carries its Cost
+	--- @param Rating number Torque rating, N·m
+	--- @param Gears number Forward gears
+	--- @return number
+	function ACF.GetGearboxCost(Class, Rating, Gears)
+		local Cost = Class and Class.Cost
+
+		if not Cost then return 0 end
+
+		return Cost.Base + Cost.PerGear * (Gears or 0) + Cost.PerKNm * (Rating * 1e-3) ^ Cost.Exponent
+	end
+
+	--- @param PeakPower number kW
+	--- @param Volume number m^3 of the engine's box
+	--- @return number
+	function ACF.GetEngineCost(PeakPower, Volume)
+		local Density = Volume and Volume > 0 and PeakPower / Volume / ACF.EngineDensityRef or 1
+
+		return ACF.EngineCostRef * (PeakPower / ACF.EnginePowerRef) ^ ACF.EnginePowerExp
+			* Density ^ ACF.EngineDensityExp
 	end
 
 	--- Returns the minimum and max gear ratio limits depending on whether realistic ratios are used.

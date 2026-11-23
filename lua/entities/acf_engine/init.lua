@@ -348,6 +348,7 @@ do -- Spawn and Update functions
 		Entity.PeakTorque       = Engine.Torque
 		Entity.PeakPower		= Engine.PeakPower
 		Entity.PeakPowerRPM		= Engine.PeakPowerRPM
+		Entity.EngineVolume     = Engine.Volume
 		Entity.PeakTorqueHeld   = Engine.Torque
 		Entity.IdleRPM          = Engine.RPM.Idle
 		Entity.PeakMinRPM       = Engine.RPM.PeakMin
@@ -867,7 +868,7 @@ end
 function ENT:GetCost()
 	local selftbl = self:GetTable()
 
-	return 5 + selftbl.PeakPower / ACF.EngineKwPerPoint
+	return ACF.GetEngineCost(selftbl.PeakPower, selftbl.EngineVolume)
 end
 
 -- Remove-only teardown. Captured by AutoRegisterV2 as OrigOnRemove; the generated OnRemove still runs

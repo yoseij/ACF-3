@@ -7,10 +7,11 @@ local StatsText    = language.GetPhrase("acf.menu.gearboxes.stats")
 local Current      = {}
 
 local function SetStatsText(GearboxStats)
-	local Mass, Torque, TorqueRating = ACF.GetGearboxStats(Current.Mass, Current.Scale, Current.MaxTorque, Current.GearCount)
+	local Mass, Torque, TorqueRating = ACF.GetGearboxStats(Current.Mass, Current.Scale, Current.MaxTorque)
+	local Cost = ACF.FormatCost(ACF.GetGearboxCost(Current.Group, TorqueRating, Current.GearCount))
 
 	-- Nominal, as engine torque is shown
-	GearboxStats:SetText(StatsText:format(ACF.FormatMass(Mass), TorqueRating, Torque))
+	GearboxStats:SetText(StatsText:format(ACF.FormatMass(Mass), TorqueRating, Torque, Cost))
 end
 
 local CreateSubMenu
@@ -73,6 +74,7 @@ CreateSubMenu = function(Menu, Entries, UseRealisticRatios, Ctx)
 		GearboxName:SetText(Data.Name)
 		GearboxDesc:SetText(Data.Description)
 
+		Current.Group     = GearboxClass.Selected
 		Current.Mass      = Data.Mass
 		Current.MaxTorque = Data.MaxTorque
 		-- From the saved values: the sliders are set before their handlers exist, and a group may fix its

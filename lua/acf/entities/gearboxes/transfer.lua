@@ -1,13 +1,15 @@
 local ACF       = ACF
 local Classes   = ACF.Classes
 
-local Gear2SW = 20
+local Gear2SW = 45 -- About 130 N·m per kg, near the Fabco TC-170 transfer case's 120
 -- In the standalone clutch's housing and slipping like one, so at its torque per kg rather than a transfer
 -- case's
-local Gear2StSW = 10
+local Gear2StSW = 105
 
 Classes.DefineClass("ACF.Gearboxes.Transfer", "ACF.Gearboxes.BaseGearbox", function(CLASS)
 	CLASS.Name			= "Transfer Case"
+	-- Simple enough to stay cheap at any size
+	CLASS.Cost          = ACF.GearSetCost
 	CLASS.CreateMenu	= ACF.ManualGearboxMenu
 	CLASS.Gears = {
 		Min	= 0,

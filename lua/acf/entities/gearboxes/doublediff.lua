@@ -16,6 +16,8 @@ end
 
 Classes.DefineClass("ACF.Gearboxes.DoubleDiff", "ACF.Gearboxes.BaseGearbox", function(CLASS)
 	CLASS.Name			= "Double Differential"
+	-- Regenerative steering is as involved as an automatic's shifting
+	CLASS.Cost			= { Base = 1, PerGear = 0, PerKNm = 0.3, Exponent = 0.5 }
 	CLASS.CreateMenu	= ACF.ManualGearboxMenu
 	CLASS.Gears = {
 		Min	= 0,

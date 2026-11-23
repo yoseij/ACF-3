@@ -3,12 +3,10 @@ local ACF       = ACF
 local Classes   = ACF.Classes
 
 -- Weight
-local GearCVTSW = 65
-local StWB = 0.75 -- Straight weight bonus mulitplier
+local GearCVTSW = 105 -- Below an automatic's torque per kg, as belt CVTs top out near 400 N·m
 
 -- Torque Rating
 local GearCVTST = 700
-local StTB = 1.25 -- Straight torque bonus multiplier
 
 local function InitGearbox(Gearbox)
 	Gearbox.CVT      = true
@@ -20,6 +18,8 @@ end
 
 Classes.DefineClass("ACF.Gearboxes.CVT", "ACF.Gearboxes.BaseGearbox", function(CLASS)
 	CLASS.Name		= "CVT"
+	-- Linear in rating: any engine speed at any road speed, and big ones are rare for good reason
+	CLASS.Cost		= { Base = 2, PerGear = 0, PerKNm = 1.5, Exponent = 1 }
 	CLASS.DrivetrainAdapter = "CVT"
 	CLASS.CreateMenu	= ACF.CVTGearboxMenu
 	CLASS.Gears = {
@@ -110,9 +110,9 @@ do -- Scalable Gearboxes
 		CLASS.Description	= "A straight-through gearbox capable of keeping an engine within a specified RPM range by constantly adjusting the gear ratio."
 		CLASS.ID			= "CVT-ST"
 		CLASS.Model			= "models/engines/t5small.mdl"
-		CLASS.Mass			= math.floor(GearCVTSW * StWB)
+		CLASS.Mass			= GearCVTSW
 		CLASS.Switch		= 0.15
-		CLASS.MaxTorque		= math.floor(GearCVTST * StTB)
+		CLASS.MaxTorque		= GearCVTST
 		CLASS.Preview = {
 			FOV = 105,
 		}

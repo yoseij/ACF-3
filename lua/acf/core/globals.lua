@@ -442,15 +442,23 @@ do -- ACF global vars
 
 	ACF.InitReloadDelay		= 10		-- Delay after spawning that belt feds are loaded
 
-	ACF.EngineKwPerPoint = 25.5 -- Engine cost is based off of power
+	-- Engine cost grows slower than power, so one big engine costs less than several of the same total, and
+	-- faster with power density, as a compact engine needs less armor around it. Turbines grow denser with
+	-- size, so the density exponent stays under the power exponent's shortfall from 1: a split still costs more
+	ACF.EngineCostRef      = 23.6 -- At the reference power and density
+	ACF.EnginePowerRef     = 1000 -- kW
+	ACF.EnginePowerExp     = 0.7
+	ACF.EngineDensityRef   = 380 -- kW per m^3 of the engine's box, a 14 L V12 diesel's
+	ACF.EngineDensityExp   = 0.25
 
 	-- Gearboxes
 	ACF.GearboxMinSize     = 0.75 -- Defines the smallest possible multiplier for the scale of a gearbox
 	ACF.GearboxMaxSize     = 3 -- Defines the largest possible multiplier for the scale of a gearbox
-	ACF.GearEfficiency     = 0.95 -- The percentage of RPM efficiency kept when increasing the gear count
 	ACF.GearboxMassScale   = 3 -- The exponent to determine the gearbox's mass in proportion to its scale
 	ACF.GearboxTorqueScale = 3 -- The exponent to determine the gearbox's torque in proportion to its scale
 	ACF.MinGearRatio       = -10 -- The minimum value that a gear's ratio can be set to
+	-- One gear set on a shaft, priced alike: clutches, differentials and transfer cases
+	ACF.GearSetCost        = { Base = 0.25, PerGear = 0, PerKNm = 0.05, Exponent = 0.5 }
 	ACF.MaxGearRatio       = 10 -- The maximum value that a gear's ratio can be set to
 	ACF.MinCVTRatio        = 1 -- The minimum value that a CVT's ratio can be set to (realistic)
 	ACF.MaxCVTRatio        = 100 -- The maximum value that a CVT's ratio can be set to (realistic)

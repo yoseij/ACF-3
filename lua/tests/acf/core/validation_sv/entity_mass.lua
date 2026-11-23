@@ -43,7 +43,7 @@ return {
                 WaitForContraption()
 
                 local Class = ACF.Classes.GetTypeByName( "ACF.Gearboxes.Manual-L" )
-                local Expected = ACF.GetGearboxStats( Class.Mass, 1.5, Class.MaxTorque, 6 )
+                local Expected = ACF.GetGearboxStats( Class.Mass, 1.5, Class.MaxTorque )
                 local Ent, Mass = Spawn( "acf_gearbox", { Gearbox = "ACF.Gearboxes.Manual-L", GearboxScale = 1.5, GearAmount = 6 } )
                 State.Ents[1] = Ent
 

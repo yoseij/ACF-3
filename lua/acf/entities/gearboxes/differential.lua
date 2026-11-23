@@ -1,7 +1,7 @@
 local ACF       = ACF
 local Classes   = ACF.Classes
 
-local Gear1SW = 10
+local Gear1SW = 45 -- Matched to a transfer case's torque per kg
 
 local function InitGearbox(Gearbox)
 	local Lock = Gearbox.Inputs and Gearbox.Inputs.Lock
@@ -14,6 +14,8 @@ end
 
 Classes.DefineClass("ACF.Gearboxes.Differential", "ACF.Gearboxes.BaseGearbox", function(CLASS)
 	CLASS.Name			= "Differential"
+	-- Simple enough to stay cheap at any size
+	CLASS.Cost          = ACF.GearSetCost
 	CLASS.CreateMenu	= ACF.DifferentialGearboxMenu
 	CLASS.DrivetrainAdapter = "Differential"
 	CLASS.Gears = {

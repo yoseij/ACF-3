@@ -115,7 +115,7 @@ do -- Spawn and Update functions -----------------------
 		local CanDualClutch = Gearbox.CanDualClutch
 		local Scale         = Entity:ACF_GetUserVar("GearboxScale") or 1
 		local MaxGear       = Gearbox.CanSetGears and (Gearbox.MaxGear or Entity:ACF_GetUserVar("GearAmount")) or Gearbox.Gears.Max
-		local ScaledMass, _, TorqueRating = ACF.GetGearboxStats(Gearbox.Mass, Scale, Gearbox.MaxTorque, MaxGear)
+		local ScaledMass, _, TorqueRating = ACF.GetGearboxStats(Gearbox.Mass, Scale, Gearbox.MaxTorque)
 
 		Entity.ACF = Entity.ACF or {}
 
@@ -1126,6 +1126,12 @@ do -- Miscellaneous ------------------------------------
 		ACF.Hints.Set(self, "gearbox_no_input", not (next(self.Engines) or next(self.GearboxIn)))
 		ACF.Hints.Set(self, "gearbox_no_output", not (next(self:ACF_GetUserVar("Wheels"))
 			or next(self:ACF_GetUserVar("GearboxOut")) or next(self:ACF_GetUserVar("Effectors"))))
+	end
+
+	function ENT:GetCost()
+		local SelfTbl = self:GetTable()
+
+		return ACF.GetGearboxCost(SelfTbl.ClassData, SelfTbl.MaxTorque, SelfTbl.MaxGear)
 	end
 
 	-- Prevent people from changing bodygroup

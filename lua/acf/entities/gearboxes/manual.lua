@@ -2,15 +2,14 @@ local ACF       = ACF
 local Classes   = ACF.Classes
 
 -- Weight
-local Gear4SW = 50
-local StWB = 0.75 -- Straight weight bonus mulitplier
+local Gear4SW = 50 -- About 15 N·m per kg, as the six-speed T56 (15.5)
 
 -- Torque Rating
-local Gear4ST = 1000
-local StTB = 1.25 -- Straight torque bonus multiplier
+local Gear4ST = 735
 
 Classes.DefineClass("ACF.Gearboxes.Manual", "ACF.Gearboxes.BaseGearbox", function(CLASS)
 	CLASS.Name			= "Manual"
+	CLASS.Cost			= { Base = 0.5, PerGear = 0.1, PerKNm = 0.4, Exponent = 0.5 }
 	CLASS.CreateMenu	= ACF.ManualGearboxMenu
 	CLASS.CanSetGears	= true
 	CLASS.Gears = {
@@ -56,9 +55,9 @@ do -- Scalable Gearboxes
 		CLASS.Description	= "A standard straight-through gearbox that requires manual gear shifting."
 		CLASS.ID			= "Manual-ST"
 		CLASS.Model			= "models/engines/t5small.mdl"
-		CLASS.Mass			= math.floor(Gear4SW * StWB)
+		CLASS.Mass			= Gear4SW
 		CLASS.Switch		= 0.15
-		CLASS.MaxTorque		= math.floor(Gear4ST * StTB)
+		CLASS.MaxTorque		= Gear4ST
 		CLASS.Preview = {
 			FOV = 105,
 		}

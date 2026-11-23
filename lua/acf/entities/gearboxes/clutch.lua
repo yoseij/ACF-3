@@ -2,7 +2,7 @@ local ACF       = ACF
 local Classes   = ACF.Classes
 
 -- Weight
-local CSW = 5
+local CSW = 55 -- Heavy-duty 430 mm truck clutches hold 2,000-3,200 N·m at 46-53 kg
 
 -- Torque Rating
 local CST = 3000
@@ -12,6 +12,8 @@ local CDesc = "A standalone clutch for when a full size gearbox is unnecessary o
 
 Classes.DefineClass("ACF.Gearboxes.Clutch", "ACF.Gearboxes.BaseGearbox", function(CLASS)
 	CLASS.Name		= "Clutch"
+	-- Simple enough to stay cheap at any size
+	CLASS.Cost      = ACF.GearSetCost
 	CLASS.CreateMenu	= ACF.ManualGearboxMenu
 	CLASS.Gears = {
 		Min	= 0,
