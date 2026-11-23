@@ -1063,14 +1063,14 @@ do -- Special squishy functions
 	end
 end
 
--- Method used for contraption_sv's GetEnts. Tl;dr: a filter for physical entities,
--- where the conditions are as follows:
+-- Method used for contraption_sv's GetEnts. Tl;dr: a filter for the core of the physical entities, which GetEnts
+-- then extends to whatever is constrained close around it. The conditions are as follows:
 --     - The entity must be parentless
 --     - The entity must be either a prop or a baseplate
 --     - If the entity is a prop, it must be connected to an ACF gearbox
 
--- This should solve most ways of doing weight boosting these days, since theres really no valid
--- reason for physical components beyond mobility (wheels) or exploits these days.
+-- Anything else counts only once GetEnts finds it constrained within the core's reach, so a weight held
+-- away from the vehicle on a constraint adds nothing.
 do
 	function ACF.IsEntityEligiblePhysmass(Entity)
 		if not IsValid(Entity) then return false end

@@ -1,6 +1,5 @@
 local hook        = hook
 local ACF         = ACF
-local Clock       = ACF.Utilities.Clock
 local Contraption = ACF.Contraption
 
 
@@ -19,11 +18,8 @@ function ACF.KEShove(Target, Pos, Vec, KE)
 	local Phys = Ancestor:GetPhysicsObject()
 
 	if IsValid(Phys) then
-		if not Ancestor.acflastupdatemass or Ancestor.acflastupdatemass + 2 < Clock.CurTime then
-			Contraption.CalcMassRatio(Ancestor)
-		end
-
-		local Ratio    = Ancestor.acfphystotal / Ancestor.acftotal
+		local Count    = Contraption.UpdateMassRatio(Ancestor)
+		local Ratio    = Count.ACF_PhysicalMass / Count.ACF_TotalMass
 		local LocalPos = Ancestor:WorldToLocal(Pos) * Ratio
 
 		if KE ~= KE then

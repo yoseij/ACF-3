@@ -49,10 +49,7 @@ local Modes = {
 			return true
 		end,
 		GetResult = function(_, Trace)
-			local Ent = Trace.Entity
-			local Power, Fuel, PhysNum, ParNum, ConNum, Name, OtherNum = Contraption.CalcMassRatio(Ent, true)
-
-			return Power, Fuel, PhysNum, ParNum, ConNum, Name, OtherNum, Ent.acftotal, Ent.acfphystotal
+			return Contraption.CalcMassRatio(Trace.Entity, true)
 		end,
 		GetCost = function(_, Trace)
 			if not IsValid(Trace.Entity) then return 0, {} end

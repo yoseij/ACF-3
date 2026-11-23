@@ -86,9 +86,118 @@ function Contraption.GetAllChildren(Ent, Tab)
 	return Res
 end
 
---- Categorizes entities into Physical, Parented, and Detached sets.
+local AddPhysicalWithinReach
+
+do -- MARK: Physical mass reach
+	local min = math.min
+	local max = math.max
+
+	-- A box's eight corners, as its mins (0) or maxs (1) on each axis; turned into the vehicle's frame, they
+	-- bound the box there
+	local CORNERS = {
+		{ 0, 0, 0 }, { 1, 0, 0 }, { 0, 1, 0 }, { 1, 1, 0 },
+		{ 0, 0, 1 }, { 1, 0, 1 }, { 0, 1, 1 }, { 1, 1, 1 },
+	}
+
+	local function GetCorner(Lo, Hi, Pick)
+		return Vector(Pick[1] == 0 and Lo.x or Hi.x, Pick[2] == 0 and Lo.y or Hi.y,
+			Pick[3] == 0 and Lo.z or Hi.z)
+	end
+
+	local function GetFrame(Core)
+		for Ent in pairs(Core) do
+			if Ent:GetClass() == "acf_baseplate" then return Ent end
+		end
+	end
+
+	-- u, about a truck wheel: an unpowered trailer's wheels hang off its bed with none of them linked
+	local MIN_REACH = 40
+
+	--- The box, in the baseplate's frame, around the baseplate and the linked wheels on it, grown on every
+	--- side by the widest wheel: road wheels, idlers and wheels slaved to a sprocket sit within it, while
+	--- mass dragged on a long chain doesn't, as it would add to the mass ratio without the vehicle having to
+	--- move it.
+	--- @return Entity?, Vector, Vector # No baseplate, no box: a world-aligned one would grow and shrink as the vehicle turns
+	local function GetReach(Core)
+		local Frame = GetFrame(Core)
+
+		if not Frame then return end
+
+		local Lo, Hi  = Frame:OBBMins(), Frame:OBBMaxs()
+		local Longest = max(Hi.x - Lo.x, Hi.y - Lo.y, Hi.z - Lo.z)
+		local Margin  = 0
+
+		for Ent in pairs(Core) do
+			if Ent ~= Frame then
+				local Size = Ent:OBBMaxs() - Ent:OBBMins()
+
+				Margin = max(Margin, Size.x, Size.y, Size.z)
+			end
+		end
+
+		-- Capped by the vehicle's own size, or a huge prop linked as a wheel would reach over everything
+		-- around it
+		Margin = max(min(Margin, Longest * 0.5), MIN_REACH)
+
+		local Grow     = Vector(Margin, Margin, Margin)
+		local NearMins = Lo - Grow
+		local NearMaxs = Hi + Grow
+		local Mins     = Vector(Lo)
+		local Maxs     = Vector(Hi)
+
+		for Ent in pairs(Core) do
+			-- Only wheels on the vehicle widen it, not a linked prop dragged on a rope far behind
+			if Ent ~= Frame and Frame:WorldToLocal(Ent:GetPos()):WithinAABox(NearMins, NearMaxs) then
+				local ELo, EHi = Ent:OBBMins(), Ent:OBBMaxs()
+
+				for _, Pick in ipairs(CORNERS) do
+					local Pos = Frame:WorldToLocal(Ent:LocalToWorld(GetCorner(ELo, EHi, Pick)))
+
+					Mins.x, Mins.y, Mins.z = min(Mins.x, Pos.x), min(Mins.y, Pos.y), min(Mins.z, Pos.z)
+					Maxs.x, Maxs.y, Maxs.z = max(Maxs.x, Pos.x), max(Maxs.y, Pos.y), max(Maxs.z, Pos.z)
+				end
+			end
+		end
+
+		return Frame, Mins - Grow, Maxs + Grow
+	end
+
+	-- Constrained rather than merely in the set, as a set handed in directly needn't be a contraption; never
+	-- parented, as a parented prop has no physics of its own
+	local function IsWithinReach(Ent, Frame, Mins, Maxs)
+		if IsValid(Ent:GetParent()) or not Contraption.HasConstraints(Ent) then return false end
+
+		local Phys = Ent:GetPhysicsObject()
+
+		if not IsValid(Phys) then return false end
+
+		return Frame:WorldToLocal(Phys:LocalToWorld(Phys:GetMassCenter())):WithinAABox(Mins, Maxs)
+	end
+
+	--- Moves what is constrained close enough to the vehicle's core from Detached into Physical. Recounted
+	--- whenever the mass ratio is, so something that leaves the contraption or drifts away stops counting;
+	--- moving it back with a chip is already a legality violation for the whole contraption.
+	function AddPhysicalWithinReach(Physical, Detached)
+		if not next(Physical) or not next(Detached) then return end
+
+		local Frame, Mins, Maxs = GetReach(Physical)
+
+		if not Frame then return end
+
+		for Ent in pairs(Detached) do
+			if IsWithinReach(Ent, Frame, Mins, Maxs) then
+				Detached[Ent] = nil
+				Physical[Ent] = true
+			end
+		end
+	end
+end
+
+--- Categorizes entities into Physical, Parented, and Detached sets: Physical is what the vehicle has to move itself,
+--- its baseplate and linked wheels and whatever unparented is constrained close around them.
 --- Accepts either an entity (resolves its CFW contraption) or a pre-built ents set directly.
-function Contraption.GetEnts(EntOrSet)
+--- @param CoreOnly boolean? # Only the baseplate and its linked wheels count as Physical, nothing within reach of them
+function Contraption.GetEnts(EntOrSet, CoreOnly)
 	local EntsSet
 
 	if IsValid(EntOrSet) then
@@ -135,6 +244,8 @@ function Contraption.GetEnts(EntOrSet)
 			end
 		end
 	end
+
+	if not CoreOnly then AddPhysicalWithinReach(Phys, Dtch) end
 
 	return Phys, Pare, Dtch
 end
@@ -184,7 +295,7 @@ function Contraption.CalcMassRatioFromContraption(Con, Tally)
 	local Physical, Parented, Detached = Contraption.GetEnts(Con.ents)
 	local Constraints                  = {}
 
-	for K in ACF.DuplexPairs(Physical, ACF.DetachedPhysmassRatio and Detached or nil) do
+	for K in pairs(Physical) do
 		local Phys = K:GetPhysicsObject()
 
 		if not IsValid(Phys) then
@@ -216,13 +327,14 @@ function Contraption.CalcMassRatioFromContraption(Con, Tally)
 		end
 	end
 
-	for K in pairs(Parented) do
-		local Phys = K:GetPhysicsObject()
+	-- Parented and detached parts weigh nothing in the ratio, so only a tally needs to look at them
+	if Tally then
+		for K in pairs(Parented) do
+			local Phys = K:GetPhysicsObject()
 
-		if not IsValid(Phys) then
-			OthN = OthN + 1
-		else
-			if Tally then
+			if not IsValid(Phys) then
+				OthN = OthN + 1
+			else
 				local Class = K:GetClass()
 
 				if Class == "acf_engine" then
@@ -234,31 +346,19 @@ function Contraption.CalcMassRatioFromContraption(Con, Tally)
 				ParN = ParN + 1
 			end
 		end
+
+		for _ in pairs(Detached) do
+			OthN = OthN + 1
+		end
 	end
 
 	local TotMass = Con.totalMass or PhysMass
 
-	for _ in pairs(Detached) do
-		OthN = OthN + 1
-	end
-
-	for K in pairs(Physical) do
-		K.acfphystotal      = PhysMass
-		K.acftotal          = TotMass
-		K.acflastupdatemass = Time
-	end
-
-	for K in pairs(Parented) do
-		K.acfphystotal      = PhysMass
-		K.acftotal          = TotMass
-		K.acflastupdatemass = Time
-	end
-
-	for K in pairs(Detached) do
-		K.acfphystotal      = PhysMass
-		K.acftotal          = TotMass
-		K.acflastupdatemass = Time
-	end
+	-- Kept on the contraption, where KE shoves and rolling resistance read them, rather than on each of its
+	-- parts
+	Con.ACF_PhysicalMass = PhysMass
+	Con.ACF_TotalMass    = TotMass
+	Con.ACF_MassTime     = Time
 
 	if Tally then
 		return Power, Fuel, PhysN, ParN, ConN, OthN, TotMass, PhysMass
@@ -277,12 +377,58 @@ function Contraption.HasConstraints(Ent)
 	return false
 end
 
+-- s a count stays fresh, as sorting a contraption's parts is slow and its mass rarely changes
+local MASS_PERIOD = 10
+
+do -- MARK: Recount on change
+	-- Fresh for MASS_PERIOD only while nothing is welded on, parented, merged or split off
+	local function Stale(Con)
+		if Con then Con.ACF_MassTime = nil end
+	end
+
+	local function FamilyChanged(_, Ent)
+		if IsValid(Ent) then Stale(Ent:CFW_GetContraption()) end
+	end
+
+	hook.Add("cfw.contraption.entityAdded", "ACF_MassRecount", Stale)
+	hook.Add("cfw.contraption.entityRemoved", "ACF_MassRecount", Stale)
+	hook.Add("cfw.contraption.merged", "ACF_MassRecount", function(_, Into) Stale(Into) end)
+	hook.Add("cfw.contraption.split", "ACF_MassRecount",
+		function(Parent, Child) Stale(Parent) Stale(Child) end)
+	hook.Add("cfw.family.added", "ACF_MassRecount", FamilyChanged)
+	hook.Add("cfw.family.subbed", "ACF_MassRecount", FamilyChanged)
+end
+
+--- Recounts the entity's contraption unless it was counted recently: running engines and KE shoves both ask,
+--- and one count serves them all.
+--- @return table # What holds the count (ACF_PhysicalMass, ACF_TotalMass): the contraption, or the entity without one
+function Contraption.UpdateMassRatio(Ent)
+	local Holder = Ent:CFW_GetContraption() or Ent
+	local Last   = Holder.ACF_MassTime
+
+	if Last and CurTime() < Last + MASS_PERIOD then return Holder end
+
+	Contraption.CalcMassRatio(Ent)
+
+	return Holder
+end
+
 --- Delegates to CalcMassRatioFromContraption using the entity's CFW contraption, or a single-entity pseudo-contraption as fallback.
 function Contraption.CalcMassRatio(Ent, Tally)
 	local Con      = Ent:CFW_GetContraption()
 	local PseudoCon = Con or ACF.EntitiesToPseudoContraption({Ent})
 
 	local Power, Fuel, PhysN, ParN, ConN, OthN, TotMass, PhysMass = Contraption.CalcMassRatioFromContraption(PseudoCon, Tally)
+
+	if not Con then -- Its own count, as there's no contraption to keep it
+		Ent.ACF_PhysicalMass = PseudoCon.ACF_PhysicalMass
+		Ent.ACF_TotalMass    = PseudoCon.ACF_TotalMass
+		Ent.ACF_MassTime     = PseudoCon.ACF_MassTime
+
+		-- An engine constrained to nothing rides on no vehicle (a test stand), so its wheels move only
+		-- themselves
+		if Ent.SetMassRatio then Ent:SetMassRatio(Ent.ACF_PhysicalMass, Ent.ACF_TotalMass, 1) end
+	end
 
 	if Tally then
 		local Owner = Ent:CPPIGetOwner()

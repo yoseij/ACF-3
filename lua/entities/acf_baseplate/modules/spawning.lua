@@ -54,7 +54,8 @@ function ENT:ACF_PostSpawn(Owner, _, _, ClientData)
 		local BPTypeInst = IsValid(Baseplate) and Baseplate:ACF_GetUserVar("BaseplateType")
 		if not BPTypeInst or not BPTypeInst.PhysicsCollide then return end
 
-		local Physical, _, _ = Con.GetEnts(Baseplate)
+		-- A crash is the hull or its wheels hitting, not every prop welded near
+		local Physical, _, _ = Con.GetEnts(Baseplate, true)
 		for Ent in pairs(Physical) do
 			if not IsValid(Ent) then continue end
 			if Ent.ACF_ReplacedPhysicsCollide then continue end

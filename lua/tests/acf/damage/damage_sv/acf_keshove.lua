@@ -7,9 +7,9 @@ return {
         State.applyForceStub = stub()
 
         State.Ent = {
-            acftotal = 1,
-            acfphystotal = 1,
-            acflastupdatemass = math.huge,
+            ACF_TotalMass = 1,
+            ACF_PhysicalMass = 1,
+            ACF_MassTime = math.huge,
 
             IsValid = function() return true end,
             WorldToLocal = function() return Ones end,
@@ -22,6 +22,8 @@ return {
                 }
             end,
             GetChildren = function() return {} end,
+            -- Not part of a contraption, so it keeps its own count
+            CFW_GetContraption = function() return nil end,
             GetAncestor = function() return State.Ent end, -- For simplicity's sake, we'll pretend the ent's ancestor is itself
         }
     end,
@@ -66,10 +68,10 @@ return {
         },
 
         {
-            name = "Calculates the Mass if acflastupdatemass is absent",
+            name = "Calculates the Mass if its mass was never counted",
             func = function( State )
                 local Ent = State.Ent
-                Ent.acflastupdatemass = nil
+                Ent.ACF_MassTime = nil
 
                 local calcMass = stub( ACF.Contraption, "CalcMassRatio" )
                 ACF.KEShove( Ent, Ones, Ones, 1 )
@@ -79,15 +81,50 @@ return {
         },
 
         {
-            name = "Calculates the Mass if acflastupdatemass is stale",
+            name = "Calculates the Mass if its mass count is stale",
             func = function( State )
                 local Ent = State.Ent
-                Ent.acflastupdatemass = -math.huge
+                Ent.ACF_MassTime = -math.huge
 
                 local calcMass = stub( ACF.Contraption, "CalcMassRatio" )
                 ACF.KEShove( Ent, Ones, Ones, 1 )
 
                 expect( calcMass ).was.called()
+            end
+        },
+
+        {
+            name = "Does not recount a fresh count",
+            func = function( State )
+                local Ent = State.Ent
+                Ent.ACF_MassTime = CurTime()
+
+                local calcMass = stub( ACF.Contraption, "CalcMassRatio" )
+                ACF.KEShove( Ent, Ones, Ones, 1 )
+
+                expect( calcMass ).wasNot.called()
+            end
+        },
+
+        {
+            name = "Scales the shove by its contraption's count, not its own",
+            func = function( State )
+                local Ent   = State.Ent
+                local Con   = { ACF_PhysicalMass = 1, ACF_TotalMass = 4, ACF_MassTime = math.huge }
+                local Force
+
+                Ent.CFW_GetContraption = function() return Con end
+                Ent.GetPhysicsObject = function()
+                    return {
+                        IsValid = function() return true end,
+                        ApplyForceOffset = function( _, Applied ) Force = Applied end,
+                        GetMass = function() return 1 end,
+                    }
+                end
+
+                ACF.KEShove( Ent, Ones, Ones, 1 )
+
+                expect( Force:Length() ).to.aboutEqual( 0.25, 1e-6 )
             end
         }
     }

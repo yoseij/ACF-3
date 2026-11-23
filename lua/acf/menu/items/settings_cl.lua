@@ -185,9 +185,6 @@ do -- Serverside settings
 
 		Base:AddCheckBox("#acf.menu.settings.general.require_fuel"):           LinkToServerData("RequireFuel")
 
-		Base:AddCheckBox("#acf.menu.settings.general.detached_physmass_ratio"):LinkToServerData("DetachedPhysmassRatio")
-			Base:AddHelp("#acf.menu.settings.general.detached_physmass_ratio_desc")
-
 		Base:AddCheckBox("#acf.menu.settings.general.allow_dynamic_linking"):LinkToServerData("AllowDynamicLinking")
 			Base:AddHelp("#acf.menu.settings.general.allow_dynamic_linking_desc")
 
