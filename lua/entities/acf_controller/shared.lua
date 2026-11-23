@@ -95,10 +95,11 @@ function ENT:SetupDataTables()
 	self:NetworkVar( "Int", "SpeedUnit", { KeyName = "speedunit", Edit = { type = "Combo", order = 601, category = "Drivetrain Settings", values = {KPH = 0, MPH = 1}, tooltip = "Unit speed should be displayed in" } } )
 	self:NetworkVar( "Int", "FuelUnit", { KeyName = "fuelunit", Edit = { type = "Combo", order = 602, category = "Drivetrain Settings", values = {L = 0, G = 1}, tooltip = "Unit fuel levels should be displayed in" } } )
 
+	self:NetworkVar( "Int", "BrakeUnit", { KeyName = "brakeunit", Edit = { type = "Combo", order = 700, category = "Brake Settings", values = {["% of lock torque"] = 0, ["N·m per wheel"] = 1}, tooltip = "What Brake Strength is in: a percentage of the torque that locks the wheels at full grip, or that torque itself on each wheel" } } )
 	self:NetworkVar( "Int", "BrakeEngagement", { KeyName = "brakeengagement", Edit = { type = "Combo", order = 701, category = "Brake Settings", values = {Manual = 0, Automatic = 1}, tooltip = "How the brake is used to stop" } } )
 	self:NetworkVar( "Int", "DisableWeldBrake", { KeyName = "disableweldbrake", Edit = { type = "Bool", order = 702, category = "Brake Settings", tooltip = "Disables weld brake and only uses ACF brakes to stop the vehicle (useful for very light cars)"  } } )
-	self:NetworkVar( "Int", "BrakeStrength", { KeyName = "brakestrength", Edit = { type = "Int", order = 703, category = "Brake Settings", min = 0.001, max = 1000, tooltip = "Brake strength (at low speed)"  } } )
-	self:NetworkVar( "Int", "BrakeStrengthTop", { KeyName = "brakestrengthtop", Edit = { type = "Int", order = 704, category = "Brake Settings", min = 0.001, max = 1000, tooltip = "Brake strength (at top speed)"  } } )
+	self:NetworkVar( "Int", "BrakeStrength", { KeyName = "brakestrength", Edit = { type = "Int", order = 703, category = "Brake Settings", min = 0.001, max = 100000, tooltip = "Brake strength (at low speed), in the Brake Unit"  } } )
+	self:NetworkVar( "Int", "BrakeStrengthTop", { KeyName = "brakestrengthtop", Edit = { type = "Int", order = 704, category = "Brake Settings", min = 0.001, max = 100000, tooltip = "Brake strength (at top speed), in the Brake Unit"  } } )
 	self:NetworkVar( "Int", "SpeedLow", { KeyName = "speedlow", Edit = { type = "Int", order = 705, category = "Brake Settings", min = 0.001, max = 1000, tooltip = "low speed for brake setting"  } } )
 	self:NetworkVar( "Int", "SpeedTop", { KeyName = "speedtop", Edit = { type = "Int", order = 706, category = "Brake Settings", min = 0.001, max = 1000, tooltip = "top speed for brake setting"  } } )
 

@@ -187,7 +187,8 @@ do -- MARK: Mobility hints
 	Register("controller_no_reverse", {
 		Title  = "No Reverse",
 		Detail = "The main gearbox has no reverse gear.",
-		Help   = "Give the main gearbox a gear with a negative ratio, or reverse with transfer gearboxes.",
+		Help   = "Give the main gearbox a gear with a negative ratio, or put a gearbox with a negative second " ..
+			"gear, such as a transfer case, between it and the wheels.",
 		Ponder = "acf.tankbasics.baseplates",
 	})
 

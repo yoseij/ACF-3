@@ -23,7 +23,9 @@ do
         HUDColor = Vector(1, 0.5, 0),
         HUDColor2 = Vector(1, 0.5, 0),
 
+        DisableWeldBrake = 1, -- The brakes hold a vehicle on slopes themselves
         BrakeStrength = 300,
+        BrakeStrengthTop = 100, -- Past the lock torque it only locks harder, which at speed skids
         SpeedTop = 60,
 
         SteerLow = 30,
