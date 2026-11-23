@@ -22,6 +22,7 @@ end)
 do -- Scalable Clutch
 	Classes.DefineClass("ACF.Gearboxes.Clutch-S", "ACF.Gearboxes.Clutch", function(CLASS)
 		CLASS.Name			= "Clutch, Straight"
+		CLASS.ModelName		= "Straight"
 		CLASS.Description	= CDesc
 		CLASS.ID			= "Clutch-S"
 		CLASS.Model			= "models/engines/flywheelclutchs.mdl"

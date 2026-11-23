@@ -57,7 +57,7 @@ CreateSubMenu = function(Menu, Entries, UseRealisticRatios, Ctx)
 		self.Selected = Data
 		ACF.Menu.SaveClassCombo(PAGE, "group", Data)
 
-		ACF.Menu.LoadClassCombo(GearboxList, Classes.GetChildren(Data), "Name", "Model", PAGE, "item")
+		ACF.Menu.LoadClassCombo(GearboxList, Classes.GetChildren(Data), "Name", "Model", PAGE, "item", "ModelName") -- The group is picked above, so only the shape is left
 	end
 
 	function GearboxList:OnSelect(Index, _, Data)
@@ -73,13 +73,17 @@ CreateSubMenu = function(Menu, Entries, UseRealisticRatios, Ctx)
 
 		Current.Mass      = Data.Mass
 		Current.MaxTorque = Data.MaxTorque
-		Current.Scale     = Current.Scale or 1
-		Current.GearCount = Data.CanSetGears and Current.GearCount or Data.Gears.Max or 3
+		-- From the saved values: the sliders are set before their handlers exist, and a group may fix its
+		-- count
+		Current.Scale     = Ctx:Get("GearboxScale") or 1
+		Current.GearCount = Data.CanSetGears and (Ctx:Get("GearAmount") or 3) or Data.Gears.Max or 3
 
 		SetStatsText(GearboxStats)
 
 		GearboxPreview:UpdateModel(Data.Model)
 		GearboxPreview:UpdateSettings(Data.Preview)
+		-- A new model resets the ghost's scale; a model that failed to load has no size to scale
+		if GearboxPreview.BoxSize then GearboxPreview:SetModelScale(Current.Scale, true) end
 
 		self:UpdateSettings()
 	end
@@ -144,7 +148,7 @@ CreateSubMenu = function(Menu, Entries, UseRealisticRatios, Ctx)
 		Ctx:Set("GearboxScale", Scale)
 
 		SetStatsText(GearboxStats)
-		ACF.UpdateGhostEntity({ Primary = { Scale = Vector(Scale, Scale, Scale), AbsoluteScale = true } })
+		if GearboxPreview.BoxSize then GearboxPreview:SetModelScale(Scale, true) end
 	end
 
 	GearAmount:SetValue(Ctx:Get("GearAmount") or 3)

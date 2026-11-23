@@ -37,6 +37,7 @@ end)
 do -- Transaxial Gearboxes
 	Classes.DefineClass("ACF.Gearboxes.DoubleDiff-T", "ACF.Gearboxes.DoubleDiff", function(CLASS)
 		CLASS.Name			= "Double Differential"
+		CLASS.ModelName		= "Transaxial"
 		CLASS.Description	= "A light duty regenerative steering transmission."
 		CLASS.ID			= "DoubleDiff-T"
 		CLASS.Model			= "models/engines/transaxial_s.mdl"

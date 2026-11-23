@@ -162,7 +162,7 @@ Chapter:AddInstruction("ACF.SetPanelCheckBox", {Name = "MainMenuCPanel", CheckBo
 Chapter:AddDelay(1)
 Chapter:AddInstruction("ACF.SetPanelComboBox", {Name = "MainMenuCPanel", Choice = "CVT"}):DelayByLength()
 Chapter:AddDelay(1)
-Chapter:AddInstruction("ACF.SetPanelComboBox", {Name = "MainMenuCPanel", Choice = "CVT, Transaxial"}):DelayByLength()
+Chapter:AddInstruction("ACF.SetPanelComboBox", {Name = "MainMenuCPanel", Choice = "Transaxial"}):DelayByLength()
 Chapter:AddDelay(1)
 
 Chapter:AddInstruction("ACF.ScrollToMenuPanel", {Name = "MainMenuCPanel", Scroll = "#acf.menu.gearboxes.scale"}):DelayByLength()

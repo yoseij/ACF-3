@@ -43,7 +43,7 @@ Chapter:AddInstruction("ACF.InitializeMainMenu", {Name = "MainMenuCPanel"}):Dela
 Chapter:AddInstruction("ACF.SelectMenuTreeNode", {Name = "MainMenuCPanel", Select = "#acf.menu.gearboxes"}):DelayByLength()
 Chapter:AddInstruction("ACF.ScrollToMenuPanel", {Name = "MainMenuCPanel", Scroll = "#acf.menu.gearboxes.gearbox_info"}):DelayByLength()
 Chapter:AddInstruction("ACF.SetPanelComboBox", {Name = "MainMenuCPanel", Choice = "Automatic"}):DelayByLength()
-Chapter:AddInstruction("ACF.SetPanelComboBox", {Name = "MainMenuCPanel", Choice = "Automatic, Inline"}):DelayByLength()
+Chapter:AddInstruction("ACF.SetPanelComboBox", {Name = "MainMenuCPanel", Choice = "Inline"}):DelayByLength()
 Chapter:AddDelay(Chapter:AddInstruction("Caption", {Text = "The main gearbox is an Automatic, Inline. It shifts by itself, so the controller only has to pick drive or reverse."}))
 
 Chapter:AddDelay(Chapter:AddInstruction("Caption", {Text = "Press Mouse1 (Left Click) to spawn it."}))
@@ -54,6 +54,7 @@ Chapter:AddInstruction("TransformModel", {Target = "MainGearbox", Position = Vec
 -------------------------------------------------------------------------------------------------
 local Chapter = Storyboard:Chapter("Transfer Cases")
 Chapter:AddInstruction("ACF.SetPanelComboBox", {Name = "MainMenuCPanel", Choice = "Transfer Case"}):DelayByLength()
+Chapter:AddInstruction("ACF.SetPanelComboBox", {Name = "MainMenuCPanel", Choice = "Transaxial"}):DelayByLength()
 Chapter:AddDelay(Chapter:AddInstruction("Caption", {Text = "Each axle gets a Transfer Case, which splits power to its left and right wheels."}))
 Chapter:AddInstruction("ACF.ScrollToMenuPanel", {Name = "MainMenuCPanel", Scroll = "#acf.menu.gearboxes.final_drive"}):DelayByLength()
 Chapter:AddInstruction("ACF.SetPanelSlider", {Name = "MainMenuCPanel", SliderName = string.format(language.GetPhrase("#acf.menu.gearboxes.gear_number"), 1), Value = 1}):DelayByLength()

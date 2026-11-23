@@ -2,6 +2,9 @@ local ACF       = ACF
 local Classes   = ACF.Classes
 
 local Gear2SW = 20
+-- In the standalone clutch's housing and slipping like one, so at its torque per kg rather than a transfer
+-- case's
+local Gear2StSW = 10
 
 Classes.DefineClass("ACF.Gearboxes.Transfer", "ACF.Gearboxes.BaseGearbox", function(CLASS)
 	CLASS.Name			= "Transfer Case"
@@ -15,6 +18,7 @@ end)
 do -- Scalable gearboxes
 	Classes.DefineClass("ACF.Gearboxes.2Gear-L", "ACF.Gearboxes.Transfer", function(CLASS)
 		CLASS.Name			= "Transfer Case, Inline"
+		CLASS.ModelName		= "Inline"
 		CLASS.Description	= "2 speed gearbox. Useful for low/high range and tank turning."
 		CLASS.ID			= "2Gear-L"
 		CLASS.Model			= "models/engines/linear_s.mdl"
@@ -28,7 +32,8 @@ do -- Scalable gearboxes
 	end)
 
 	Classes.DefineClass("ACF.Gearboxes.2Gear-T", "ACF.Gearboxes.Transfer", function(CLASS)
-		CLASS.Name			= "Transfer Case"
+		CLASS.Name			= "Transfer Case, Transaxial"
+		CLASS.ModelName		= "Transaxial"
 		CLASS.Description	= "2 speed gearbox. Useful for low/high range and tank turning."
 		CLASS.ID			= "2Gear-T"
 		CLASS.Model			= "models/engines/transaxial_s.mdl"
@@ -38,6 +43,20 @@ do -- Scalable gearboxes
 		CLASS.DualClutch	= true
 		CLASS.Preview = {
 			FOV = 85,
+		}
+	end)
+
+	Classes.DefineClass("ACF.Gearboxes.2Gear-ST", "ACF.Gearboxes.Transfer", function(CLASS)
+		CLASS.Name			= "Transfer Case, Straight"
+		CLASS.ModelName		= "Straight"
+		CLASS.Description	= "2 speed straight-through unit, such as a reverser ahead of a final drive. One output, so it can't steer."
+		CLASS.ID			= "2Gear-ST"
+		CLASS.Model			= "models/engines/flywheelclutchs.mdl"
+		CLASS.Mass			= Gear2StSW
+		CLASS.Switch		= 0.3
+		CLASS.MaxTorque		= 6000
+		CLASS.Preview = {
+			FOV = 115,
 		}
 	end)
 end

@@ -75,6 +75,7 @@ end)
 do -- Scalable Gearboxes
 	Classes.DefineClass("ACF.Gearboxes.CVT-L", "ACF.Gearboxes.CVT", function(CLASS)
 		CLASS.Name			= "CVT, Inline"
+		CLASS.ModelName		= "Inline"
 		CLASS.Description	= "An inline gearbox capable of keeping an engine within a specified RPM range by constantly adjusting the gear ratio."
 		CLASS.ID			= "CVT-L"
 		CLASS.Model			= "models/engines/linear_s.mdl"
@@ -89,6 +90,7 @@ do -- Scalable Gearboxes
 
 	Classes.DefineClass("ACF.Gearboxes.CVT-T", "ACF.Gearboxes.CVT", function(CLASS)
 		CLASS.Name			= "CVT, Transaxial"
+		CLASS.ModelName		= "Transaxial"
 		CLASS.Description	= "A transaxial gearbox capable of keeping an engine within a specified RPM range by constantly adjusting the gear ratio."
 		CLASS.ID			= "CVT-T"
 		CLASS.Model			= "models/engines/transaxial_s.mdl"
@@ -103,6 +105,7 @@ do -- Scalable Gearboxes
 
 	Classes.DefineClass("ACF.Gearboxes.CVT-ST", "ACF.Gearboxes.CVT", function(CLASS)
 		CLASS.Name			= "CVT, Straight"
+		CLASS.ModelName		= "Straight"
 		CLASS.Description	= "A straight-through gearbox capable of keeping an engine within a specified RPM range by constantly adjusting the gear ratio."
 		CLASS.ID			= "CVT-ST"
 		CLASS.Model			= "models/engines/t5small.mdl"

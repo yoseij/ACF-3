@@ -22,6 +22,7 @@ end)
 do -- Scalable Gearboxes
 	Classes.DefineClass("ACF.Gearboxes.Manual-L", "ACF.Gearboxes.Manual", function(CLASS)
 		CLASS.Name			= "Manual, Inline"
+		CLASS.ModelName		= "Inline"
 		CLASS.Description	= "A standard inline gearbox that requires manual gear shifting."
 		CLASS.ID			= "Manual-L"
 		CLASS.Model			= "models/engines/linear_s.mdl"
@@ -36,6 +37,7 @@ do -- Scalable Gearboxes
 
 	Classes.DefineClass("ACF.Gearboxes.Manual-T", "ACF.Gearboxes.Manual", function(CLASS)
 		CLASS.Name			= "Manual, Transaxial"
+		CLASS.ModelName		= "Transaxial"
 		CLASS.Description	= "A standard transaxial gearbox that requires manual gear shifting."
 		CLASS.ID			= "Manual-T"
 		CLASS.Model			= "models/engines/transaxial_s.mdl"
@@ -50,6 +52,7 @@ do -- Scalable Gearboxes
 
 	Classes.DefineClass("ACF.Gearboxes.Manual-ST", "ACF.Gearboxes.Manual", function(CLASS)
 		CLASS.Name			= "Manual, Straight"
+		CLASS.ModelName		= "Straight"
 		CLASS.Description	= "A standard straight-through gearbox that requires manual gear shifting."
 		CLASS.ID			= "Manual-ST"
 		CLASS.Model			= "models/engines/t5small.mdl"

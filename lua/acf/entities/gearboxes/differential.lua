@@ -15,6 +15,7 @@ end)
 do -- Scalable Gearboxes
 	Classes.DefineClass("ACF.Gearboxes.1Gear-L", "ACF.Gearboxes.Differential", function(CLASS)
 		CLASS.Name			= "Differential, Inline"
+		CLASS.ModelName		= "Inline"
 		CLASS.Description	= "An inline gearbox used to connect power from another gearbox to the wheels."
 		CLASS.ID			= "1Gear-L"
 		CLASS.Model			= "models/engines/linear_s.mdl"
@@ -29,6 +30,7 @@ do -- Scalable Gearboxes
 
 	Classes.DefineClass("ACF.Gearboxes.1Gear-T", "ACF.Gearboxes.Differential", function(CLASS)
 		CLASS.Name			= "Differential, Transaxial"
+		CLASS.ModelName		= "Transaxial"
 		CLASS.Description	= "A transaxial gearbox used to connect power from another gearbox to the wheels."
 		CLASS.ID			= "1Gear-T"
 		CLASS.Model			= "models/engines/transaxial_s.mdl"

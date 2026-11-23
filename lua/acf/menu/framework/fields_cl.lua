@@ -65,10 +65,10 @@ function ACF.Menu.SaveClassCombo(PageID, Key, Data)
 	ACF.Menu.SetUIState(PageID, Key, Classes.GetTypeName(Data))
 end
 
-function ACF.Menu.PopulateCombo(Combo, List, Member, IconMember)
+function ACF.Menu.PopulateCombo(Combo, List, Member, IconMember, LabelMember)
 	local Handler  = Combo.OnSelect
 	Combo.OnSelect = function() end
-	ACF.LoadSortedList(Combo, List, Member, IconMember)
+	ACF.LoadSortedList(Combo, List, Member, IconMember, LabelMember)
 	Combo.OnSelect = Handler
 end
 
@@ -91,10 +91,10 @@ local function GetPreferredChoice(Choices)
 	end
 end
 
-function ACF.Menu.LoadClassCombo(Combo, List, Member, IconMember, PageID, Key)
+function ACF.Menu.LoadClassCombo(Combo, List, Member, IconMember, PageID, Key, LabelMember)
 	local Saved = ACF.Menu.GetUIState(PageID, Key)
 
-	ACF.Menu.PopulateCombo(Combo, List, Member, IconMember)
+	ACF.Menu.PopulateCombo(Combo, List, Member, IconMember, LabelMember)
 
 	local Choices = Combo.ListData and Combo.ListData.Choices
 	if not (Choices and Choices[1] ~= nil) then return end

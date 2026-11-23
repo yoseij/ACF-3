@@ -124,6 +124,7 @@ end)
 do -- Scalable Gearboxes
 	Classes.DefineClass("ACF.Gearboxes.Auto-L", "ACF.Gearboxes.Auto", function(CLASS)
 		CLASS.Name			= "Automatic, Inline"
+		CLASS.ModelName		= "Inline"
 		CLASS.Description	= "An inline gearbox capable of automatically shifting gears based on speed."
 		CLASS.ID			= "Auto-L"
 		CLASS.Model			= "models/engines/linear_s.mdl"
@@ -138,6 +139,7 @@ do -- Scalable Gearboxes
 
 	Classes.DefineClass("ACF.Gearboxes.Auto-T", "ACF.Gearboxes.Auto", function(CLASS)
 		CLASS.Name			= "Automatic, Transaxial"
+		CLASS.ModelName		= "Transaxial"
 		CLASS.Description	= "A transaxial gearbox capable of automatically shifting gears based on speed."
 		CLASS.ID			= "Auto-T"
 		CLASS.Model			= "models/engines/transaxial_s.mdl"
@@ -152,6 +154,7 @@ do -- Scalable Gearboxes
 
 	Classes.DefineClass("ACF.Gearboxes.Auto-ST", "ACF.Gearboxes.Auto", function(CLASS)
 		CLASS.Name			= "Automatic, Straight"
+		CLASS.ModelName		= "Straight"
 		CLASS.Description	= "A straight-through gearbox capable of automatically shifting gears based on speed."
 		CLASS.ID			= "Auto-ST"
 		CLASS.Model			= "models/engines/t5small.mdl"
