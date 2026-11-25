@@ -21,23 +21,32 @@ function CVT.New(Entity, Input, Train)
 	return setmetatable(Object, CVT)
 end
 
---- An engaged output counts while it slips too: overloaded it turns as slowly as the vehicle does, so the
---- ratio comes down to where it can pull; left out, the engine's speed would keep the ratio too tall to stop
---- the slip.
+--- An output that held locked last tick pins its shaft, so while any does only those count: one that slips
+--- beside it would set a ratio the shaft doesn't turn at, running the engine past its band. When all of them
+--- slip they count: overloaded they turn as slowly as the vehicle does, so the ratio comes down to where they
+--- can pull; left out, the engine's speed would keep the ratio too tall to stop the slip.
 --- @return number? # nil with no output engaged
 function CVT:GetLockedRPM()
-	local Sum   = 0
-	local Count = 0
+	local Sum, Count         = 0, 0
+	local SlipSum, SlipCount = 0, 0
 
 	for _, Record in ipairs(self.Links) do
 		local Clutch = Record.Clutch
 
 		if Clutch:IsActive() and Record.Target:HoldsSpeed() then
-			Sum   = Sum + Clutch.Output.Omega / Clutch.Ratio
-			Count = Count + 1
+			local Speed = Clutch.Output.Omega / Clutch.Ratio
+
+			if Clutch.Saturated then
+				SlipSum   = SlipSum + Speed
+				SlipCount = SlipCount + 1
+			else
+				Sum   = Sum + Speed
+				Count = Count + 1
+			end
 		end
 	end
 
+	if Count == 0 then Sum, Count = SlipSum, SlipCount end
 	if Count == 0 then return end
 
 	return Sum / Count / RPM_TO_RADS
