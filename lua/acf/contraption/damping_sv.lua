@@ -50,8 +50,8 @@ do -- MARK: Default damping
 	end
 
 	--- Velocity damping slows a body at a rate that grows with its speed, so with the mass ratio it held a
-	--- heavy vehicle far below its power's top speed; rolling resistance does that job instead, and drag goes
-	--- with it. Damping set on purpose, such as a seat's, differs from the default and is kept.
+	--- heavy vehicle far below its power's top speed; rolling resistance and air drag do that job instead, so
+	--- physics drag goes with it. Damping set on purpose, such as a seat's, differs from the default and is kept.
 	--- @param Entities table # Entities as values, as a paste's created entities are
 	--- @param Baseplate entity? # The vehicle's, where its contraption may not have it yet
 	function Contraption.ClearDefaultDamping(Entities, Baseplate)

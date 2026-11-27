@@ -189,6 +189,8 @@ do -- Serverside settings
 		Base:AddSlider("#acf.menu.settings.general.max_driveshaft_angle"):     LinkToServerData("MaxDriveshaftAngle")
 		Base:AddSlider("#acf.menu.settings.general.rolling_resistance"):       LinkToServerData("RollingResistance")
 			Base:AddHelp("#acf.menu.settings.general.rolling_resistance_desc")
+		Base:AddSlider("#acf.menu.settings.general.drag_coefficient"):         LinkToServerData("DragCoefficient")
+			Base:AddHelp("#acf.menu.settings.general.drag_coefficient_desc")
 
 		Base:AddCheckBox("#acf.menu.settings.general.crew_required"):         LinkToServerData("CrewRequired")
 		Base:AddHelp("#acf.menu.settings.general.crew_required_desc")

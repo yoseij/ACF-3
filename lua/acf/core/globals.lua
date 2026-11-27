@@ -174,7 +174,8 @@ do -- ACF global vars
 	ACF.DefineSetting("MaxDriveshaftAngle",   85,    nil, ACF.FloatDataCallback(85, 180, 0), 360)
 
 	-- Server-wide, as any per-vehicle value would just be set to nothing for speed
-	ACF.DefineSetting("RollingResistance",    0.05,  "Rolling resistance has been set to %.3f.", ACF.FloatDataCallback(0, 0.3, 3))
+	ACF.DefineSetting("RollingResistance",    0.06,  "Rolling resistance has been set to %.3f.", ACF.FloatDataCallback(0, 0.3, 3))
+	ACF.DefineSetting("DragCoefficient",      0.3,   "Vehicle drag coefficient has been set to %.2f.", ACF.FloatDataCallback(0, 2, 2))
 
 	ACF.DefineSetting("EnableKillFeedCost",   true,   "Kill feed cost display has been %s.", ACF.BooleanDataCallback())
 	ACF.DefineSetting("KillLogFlushInterval", 30,    "Kill log disk-write interval has been set to %s seconds.", ACF.FloatDataCallback(15, 600, 0))
