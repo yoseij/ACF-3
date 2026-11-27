@@ -13,6 +13,7 @@ local function Init(Entity)
 	Entity.RightGearboxes       = {}   -- Same for the right wheels
 	Entity.LeftWheels           = {}   -- Wheels connected to the left drive wheel
 	Entity.RightWheels          = {}   -- Wheels connected to the right drive wheel
+	Entity.DoubleDiffs          = {}   -- Double differentials splitting left from right, each with the sign of Steer Rate that slows its left side
 	Entity.ControllerWelds      = {}   -- Keep track of the welds we created
 	Entity.SteerPlatesSorted    = {}   -- Steer plates sorted by their position
 	Entity.SteerPhysicsObjects  = {}   -- Steering physics objects
@@ -28,6 +29,7 @@ do
 	local CLUTCH_BLOCK = 1
 	local PARK_GRACE = 0.15 -- s with no key held before parking; changing keys leaves a tick or two with none
 	local UNSIDED = "" -- Side of a single-output gearbox, whose only inputs are the unsided ones
+	local OUTPUT_FIELDS = { "Wheels", "GearboxOut" } -- A gearbox's links to what it drives
 
 	--- Finds the components of the drive train
 	--- Input is the "main" gearbox of the drivetrain
@@ -192,6 +194,73 @@ do
 		SetSide(SelfTbl, SelfTbl.RightGearboxes, Name, Value, NotSided)
 	end
 
+	-- Positive turns left
+	local function SetDoubleDiffs(SelfTbl, Rate)
+		for Gearbox, Sign in pairs(SelfTbl.DoubleDiffs) do TriggerSafe(SelfTbl, Gearbox, "Steer Rate", Rate * Sign) end
+	end
+
+	-- Whether a gearbox output's target is, or drives, one of the given wheels
+	local function DrivesAny(Target, Wheels)
+		local Queue, Seen = { Target }, { [Target] = true }
+
+		while #Queue > 0 do
+			local Current = table.remove(Queue)
+
+			if Wheels[Current] then return true end
+
+			if Current:GetClass() == "acf_gearbox" then
+				for _, Field in ipairs(OUTPUT_FIELDS) do
+					for Next in pairs(Current:ACF_GetUserVar(Field) or {}) do
+						if IsValid(Next) and not Seen[Next] then
+							Seen[Next] = true
+							Queue[#Queue + 1] = Next
+						end
+					end
+				end
+			end
+		end
+
+		return false
+	end
+
+	-- Steer Rate slows a double differential's side 0 when negative and side 1 when positive, and the side of a link
+	-- comes from where its target sits, so which one is left is read from the links. Nil unless one side drives
+	-- only left wheels and the other only right ones.
+	local function GetDoubleDiffSign(Gearbox, LeftWheels, RightWheels)
+		local LeftSide, RightSide
+
+		for _, Field in ipairs(OUTPUT_FIELDS) do
+			for Target, Link in pairs(Gearbox:ACF_GetUserVar(Field) or {}) do
+				if IsValid(Target) and istable(Link) and Link.Side then
+					local Left, Right = DrivesAny(Target, LeftWheels), DrivesAny(Target, RightWheels)
+
+					if Left == Right then return end
+					if Left then
+						if LeftSide and LeftSide ~= Link.Side then return end
+						LeftSide = Link.Side
+					else
+						if RightSide and RightSide ~= Link.Side then return end
+						RightSide = Link.Side
+					end
+				end
+			end
+		end
+
+		if LeftSide == nil or LeftSide == RightSide then return end
+
+		return LeftSide == 1 and 1 or -1
+	end
+
+	-- Steer Rate at this speed: 0.5 stops the inner side
+	local function GetDoubleDiffRate(Entity, Speed)
+		local Low, Top = Entity:GetDoubleDiffSteerLow(), Entity:GetDoubleDiffSteerTop()
+		local MinSpeed, MaxSpeed = Entity:GetSpeedLow(), Entity:GetSpeedTop()
+
+		if MinSpeed == MaxSpeed then return Low end
+
+		return math.Clamp(math.Remap(Speed, MinSpeed, MaxSpeed, Low, Top), math.min(Low, Top), math.max(Low, Top))
+	end
+
 	-- m, half the wheel's span across its axle: of a wheel's three sizes the middle one is its diameter
 	local function GetWheelRadius(Wheel)
 		local Size  = Wheel:OBBMaxs() - Wheel:OBBMins()
@@ -345,6 +414,19 @@ do
 			end
 		end
 		self.LeftGearboxes, self.RightGearboxes = LeftGearboxes, RightGearboxes
+
+		-- Those no longer steered would keep the last rate they were given
+		for Gearbox in pairs(self.DoubleDiffs) do
+			if IsValid(Gearbox) then Gearbox:TriggerInput("Steer Rate", 0) end
+		end
+
+		local DoubleDiffs = {}
+		for _, Gearboxes in ipairs({ self.GearboxEnds, self.GearboxIntermediates }) do
+			for Gearbox in pairs(Gearboxes) do
+				if Gearbox.DoubleDiff then DoubleDiffs[Gearbox] = GetDoubleDiffSign(Gearbox, LeftWheels, RightWheels) end
+			end
+		end
+		self.DoubleDiffs = DoubleDiffs
 
 		for v in pairs(self:ACF_GetUserVar("SteerPlates")) do
 			local PhysObj = v:GetPhysicsObject()
@@ -541,6 +623,7 @@ do
 
 		if IsBraking or (self:GetBrakeEngagement() == 1 and not IsMoving) then -- Braking
 			SetParkingBrake(SelfTbl, true, BrakeTorque)
+			SetDoubleDiffs(SelfTbl, 0)
 
 			-- Only the weld latches tie the wheels to the baseplate, so without them the plates can keep
 			-- turning
@@ -553,6 +636,10 @@ do
 
 		local DriveGear = (W and 1) or (S and 2) or (A and 1) or (D and 1) or 0
 
+		-- Both rates at 0 keep brake steering, which is what controllers made before this setting did
+		local DoubleDiffSteering = next(SelfTbl.DoubleDiffs) ~= nil
+			and (self:GetDoubleDiffSteerLow() ~= 0 or self:GetDoubleDiffSteerTop() ~= 0)
+
 		if not ShouldSteer then
 			-- Tank steering
 			SetLatches(SelfTbl, false)
@@ -562,6 +649,17 @@ do
 				SetLeft(SelfTbl, "Clutch", CLUTCH_FLOW) SetRight(SelfTbl, "Clutch", CLUTCH_FLOW)
 				SetDriveGear(SelfTbl, 1, true) -- A reverser above the ends would undo the backwards side
 				SetLeft(SelfTbl, "Gear", A and 2 or 1, true) SetRight(SelfTbl, "Gear", D and 2 or 1, true)
+				SetDoubleDiffs(SelfTbl, 0)
+			elseif DoubleDiffSteering then
+				-- The double differentials steer, pivoting on the spot past 0.5 when there is no W/S
+				SetDriveGear(SelfTbl, DriveGear)
+
+				SetLeft(SelfTbl, "Brake", 0) SetRight(SelfTbl, "Brake", 0)
+				SetLeft(SelfTbl, "Clutch", CLUTCH_FLOW) SetRight(SelfTbl, "Clutch", CLUTCH_FLOW)
+
+				local Turn = (A and 1 or 0) - (D and 1 or 0)
+
+				SetDoubleDiffs(SelfTbl, Turn == 0 and 0 or Turn * (IsLateral and GetDoubleDiffRate(self, Speed) or 1))
 			else
 				-- Normal driving, gears follow W/S
 				SetDriveGear(SelfTbl, DriveGear)
@@ -570,12 +668,14 @@ do
 				SetRight(SelfTbl, "Brake",  D and BrakeTorque or 0)
 				SetLeft(SelfTbl,  "Clutch", A and CLUTCH_BLOCK or CLUTCH_FLOW)
 				SetRight(SelfTbl, "Clutch", D and CLUTCH_BLOCK or CLUTCH_FLOW)
+				SetDoubleDiffs(SelfTbl, 0)
 			end
 		else
 			-- Car steering
 			SetParkingBrake(SelfTbl, false)
 			SetLeft(SelfTbl, "Clutch", CLUTCH_FLOW) SetRight(SelfTbl, "Clutch", CLUTCH_FLOW)
 			SetLatches(SelfTbl, false) -- Revert braking if not braking
+			SetDoubleDiffs(SelfTbl, 0) -- Switching to car steering mid-turn would leave them turning
 
 			SetDriveGear(SelfTbl, DriveGear)
 

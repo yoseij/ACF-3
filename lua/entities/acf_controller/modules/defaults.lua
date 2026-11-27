@@ -31,6 +31,9 @@ do
         SteerLow = 30,
         SteerTop = 30,
 
+        DoubleDiffSteerLow = 0.5,
+        DoubleDiffSteerTop = 0.1,
+
         ShiftTime = 100,
     }
     return Defaults

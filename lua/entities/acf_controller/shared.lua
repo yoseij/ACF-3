@@ -114,6 +114,9 @@ function ENT:SetupDataTables()
 	self:NetworkVar( "Float", "SteerRate", { KeyName = "steerrate", Edit = { type = "Float", order = 904, category = "Car Steering Settings", min = -45, max = 45, tooltip = "Speed wheels are steered at" } } )
 	self:NetworkVar( "Int", "SteerLow", { KeyName = "steerlow", Edit = { type = "Int", order = 905, category = "Car Steering Settings", min = 0, max = 1000, tooltip = "Steer angle at low speed" } } )
 	self:NetworkVar( "Int", "SteerTop", { KeyName = "steertop", Edit = { type = "Int", order = 906, category = "Car Steering Settings", min = 0, max = 1000, tooltip = "Steer angle at top speed" } } )
+
+	self:NetworkVar( "Float", "DoubleDiffSteerLow", { KeyName = "doublediffsteerlow", Edit = { type = "Float", order = 1000, category = "Double Differential Settings", min = 0, max = 1, tooltip = "Steer Rate given to double differentials when turning while driving, at low speed (0.5 stops the inner side). Turning on the spot always pivots. Both 0: steer with the brakes instead" } } )
+	self:NetworkVar( "Float", "DoubleDiffSteerTop", { KeyName = "doublediffsteertop", Edit = { type = "Float", order = 1001, category = "Double Differential Settings", min = 0, max = 1, tooltip = "Steer Rate given to double differentials when turning while driving, at top speed (see the brake settings for low and top speed)" } } )
 end
 
 -- Thank you march (https://github.com/marchc1/imagestickers/blob/master/lua/imagestickers/properties.lua)
