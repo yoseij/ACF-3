@@ -41,6 +41,10 @@ local CAP_REFRESH     = 1      -- s between reads of the limit, which an addon m
 -- keep going
 local ROLL_STILL      = 0.2
 local ROLL_FULL       = 0.4    -- rad/s; rolling resistance fades in up to here, so there is no step
+local MAX_GRIP        = 1      -- Physics caps a contact's friction here, however grippy its two surfaces
+-- rad/s against the ground; slower than this a tyre grips either way, as static friction does
+local SLIP_BAND       = 0.3
+local INCH_TO_METER   = ACF.InchToMeter
 -- deg; under this on every axis an AdvBallsocket keeps two props turning together (0/0 still swings ~6)
 local LOCKED_RANGE    = 1
 -- Props locked to one wheel, so a contraption locked together some other way isn't walked whole
@@ -82,6 +86,22 @@ local function GetSpinCap()
 	end
 
 	return SpinCap
+end
+
+-- The wheel's own surface, as it can't know the ground's; a grippier tyre still helps on a slippery ground
+local function GetGrip(Phys)
+	local Data = util.GetSurfaceData(util.GetSurfaceIndex(PHYSOBJ.GetMaterial(Phys)))
+
+	return min(MAX_GRIP, Data and Data.friction or MAX_GRIP)
+end
+
+-- A welded prop turns nothing over the ground, so whatever holds it is no tyre's grip
+local function IsWelded(Entity)
+	for _, Constraint in pairs(Entity.Constraints or EMPTY) do
+		if IsValid(Constraint) and Constraint.Type == "Weld" then return true end
+	end
+
+	return false
 end
 
 local function IsLocked(Constraint)
@@ -200,6 +220,10 @@ function Wheel.New(Entity, Axis, Reference, Train)
 		SpinCap     = Drivetrain.Limits.SpinCap.New(Body), -- For the builder to add to the system
 		Inertia     = Inertia,
 		InertiaAge  = 0, -- Read again on the first step, which also finds what is locked to it
+		Grip        = MAX_GRIP,
+		Welded      = false,
+		Braked      = false,
+		WheelLoad   = 0, -- N it bears, read once a step for its grip and its rolling resistance
 		AxisWorld   = false,
 		Usable      = false,
 		Held        = false,
@@ -270,6 +294,22 @@ local function GetSpin(Entity, Phys, Axis, AxisWorld, ChassisSpin)
 	return -rad(Own - Carried), rad(Room + Carried), -rad(Room - Carried)
 end
 
+-- The ground can only hold back a tyre that slips over it, and by no more than its grip. A tyre's contact springs
+-- back within a tick, and learned as a load that would have the drivetrain push the wheel along its slip, which
+-- with two axles on one gearbox locks them turning against each other.
+local function LimitLoad(self, Body, Spin, AxisWorld)
+	local Most     = self.Grip * self.WheelLoad * self.Radius
+	local Velocity = PHYSOBJ.GetVelocity(self.Phys)
+	-- Along up x axle, the way a positive spin rolls it
+	local Ground   = (AxisWorld.x * Velocity.y - AxisWorld.y * Velocity.x) * INCH_TO_METER / self.Radius
+	local Slip     = Spin - Ground
+	local Lo, Hi   = -Most, Most
+
+	if Slip > SLIP_BAND then Hi = 0 elseif Slip < -SLIP_BAND then Lo = 0 end
+
+	Body.Load = Clamp(Body.Load, Lo, Hi)
+end
+
 function Wheel:PreStep(DeltaTime)
 	local Entity = self.Entity
 	local Phys   = self.Phys
@@ -280,6 +320,10 @@ function Wheel:PreStep(DeltaTime)
 	local Live, Moving = pcall(IsMotionEnabled, Phys)
 
 	if not Live then Phys, Live, Moving = Rebind(self) end
+
+	local Brake = self.Brake
+
+	self.Braked = Brake and Brake.Capacity > 0 or false -- Gearboxes set this tick's after the wheel steps
 
 	ReleaseBrake(self)
 
@@ -315,15 +359,26 @@ function Wheel:PreStep(DeltaTime)
 	if self.InertiaAge <= 0 then
 		self.Inertia    = GetAxialInertia(Phys, self.Axis)
 		self.Radius     = GetRadius(Entity, self.Axis) -- Making it spherical after linking changes it too
+		self.Grip       = GetGrip(Phys) -- The material tool changes it without telling anyone
+		self.Welded     = IsWelded(Entity)
 		self.InertiaAge = INERTIA_TICKS
 
 		RefreshGroup(self) -- Constraints change without telling anyone, and rarely
 	end
 
 	self.InertiaAge = self.InertiaAge - 1
+	self.WheelLoad  = Rolling.GetWheelLoad(Entity)
 	Body.Inertia    = self.Inertia + self.GroupInertia
 
 	Body:Observe(Spin, DeltaTime)
+
+	-- Nothing bears on a propeller or a welded prop the way the ground does on a tyre, and a track touches the
+	-- ground through the road wheels locked to it, not through this wheel's own radius and contact. A braked tyre
+	-- holding its vehicle on a slope is turned a little within each tick by what it holds, which reads as slip the
+	-- way a spring-back does, but is the ground's real push.
+	if self.WheelLoad > 0 and not self.Welded and not self.Group[1] and not self.Braked then
+		LimitLoad(self, Body, Spin, AxisWorld)
+	end
 end
 
 --- Asleep and out of every running engine's reach, there's nothing to read: it holds still where it lies, and
@@ -442,7 +497,7 @@ local function GetRollingImpulse(self, Body, DeltaTime)
 	if Speed <= ROLL_STILL then return 0 end
 
 	local Fade = min(1, (Speed - ROLL_STILL) / (ROLL_FULL - ROLL_STILL))
-	local Most = Coefficient * Rolling.GetWheelLoad(self.Entity) * self.Radius * DeltaTime * Fade
+	local Most = Coefficient * self.WheelLoad * self.Radius * DeltaTime * Fade
 
 	return Omega > 0 and -min(Most, Body.Inertia * Omega) or min(Most, -Body.Inertia * Omega)
 end
