@@ -12,11 +12,15 @@ local Remap    = math.Remap
 local Clamp    = math.Clamp
 local abs      = math.abs
 local max      = math.max
+local min      = math.min
 
 local REV_LIMIT     = 0.99 -- Share of the redline where the rev limiter cuts the throttle
 -- Share of the redline where, with the rev limiter off, its torque has fallen away to nothing
 local OVERREV       = 1.25
-local GOVERNOR_BAND = 0.2  -- Share of idle below it where the idle governor is at full throttle
+local GOVERNOR_BAND = 0.2  -- Share of idle below it where the idle governor is at full authority
+-- The idle governor opens to this many times the throttle the engine idles on with nothing to turn, so it holds
+-- idle against small loads but lugs and stalls in a high gear, as a real idle control does
+local IDLE_RESERVE  = 2
 local STALL_SHARE   = 0.5  -- Share of idle below which a piston engine stops firing
 -- Share of idle a piston engine must be turned at to fire, by its starter or its wheels
 local CATCH_SHARE   = 0.6
@@ -44,6 +48,8 @@ function Engine.New(Entity, Shaft, Friction)
 	}, Engine)
 
 	Shaft:AddSource(Object)
+
+	Object.IdleAuthority = Engine.GetIdleAuthority(Object.EntTbl)
 
 	return Object
 end
@@ -102,6 +108,11 @@ function Engine:GetGovernor(Omega)
 	return Clamp((IdleRPM - Omega / RPM_TO_RADS) / (GOVERNOR_BAND * IdleRPM), 0, 1)
 end
 
+--- The idle governor's opening, held to what idle control can give.
+function Engine:GetIdleThrottle(Omega)
+	return min(self:GetGovernor(Omega), self.IdleAuthority or 1)
+end
+
 --- The driver's throttle, opened by the idle governor and cut by the rev limiter. A governed engine isn't
 --- cut: its governor fades the torque past the limit instead, in GetDrive.
 function Engine:GetThrottle(Omega)
@@ -112,12 +123,12 @@ function Engine:GetThrottle(Omega)
 	if EntTbl.GovernorDroop then
 		EntTbl.RevLimited = Omega > EntTbl.LimitRPM * RPM_TO_RADS
 
-		return EntTbl.Firing and max(EntTbl.Throttle, self:GetGovernor(Omega)) or 0
+		return EntTbl.Firing and max(EntTbl.Throttle, self:GetIdleThrottle(Omega)) or 0
 	end
 
 	if EntTbl.Firing then
 		RevLimited = EntTbl.revLimiterEnabled and Omega > REV_LIMIT * EntTbl.LimitRPM * RPM_TO_RADS
-		Throttle   = RevLimited and 0 or max(EntTbl.Throttle, self:GetGovernor(Omega))
+		Throttle   = RevLimited and 0 or max(EntTbl.Throttle, self:GetIdleThrottle(Omega))
 	end
 
 	EntTbl.RevLimited = RevLimited
@@ -180,6 +191,20 @@ function Engine.GetLosses(EntTbl, Omega)
 	local Speed = abs(Omega) / (EntTbl.LimitRPM * RPM_TO_RADS)
 
 	return EntTbl.LossConstant + EntTbl.LossLinear * Speed + EntTbl.LossQuadratic * Speed * Speed
+end
+
+--- Most of the throttle the idle governor may open: the reserve times the throttle it idles on unloaded, where
+--- its drive at idle meets the losses the closed throttle leaves.
+--- @param EntTbl table
+--- @return number
+function Engine.GetIdleAuthority(EntTbl)
+	local Omega  = EntTbl.IdleRPM * RPM_TO_RADS
+	local Drive  = GetDrive(EntTbl, 1, Omega)
+	local Losses = Engine.GetLosses(EntTbl, Omega)
+
+	if Drive + Losses <= 0 then return 1 end
+
+	return min(1, IDLE_RESERVE * Losses / (Drive + Losses))
 end
 
 --- Fuel goes on the work the burning does, which is what reaches the shaft plus the losses it pays on the

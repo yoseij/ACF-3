@@ -131,13 +131,27 @@ return {
                 local Step, EntTbl, Shaft = Rig( PISTON )
 
                 Shaft.Omega = IDLE
-                Shaft:AddSource( Constant( -60 ) ) -- A third of what full throttle makes at idle
+                Shaft:AddSource( Constant( -15 ) ) -- Half of what its reserve leaves over its losses at idle
 
                 Step( 198 )
 
                 expect( EntTbl.Firing ).to.beTrue()
                 expect( Shaft.Omega ).to.beGreaterThan( 0.8 * IDLE )
                 expect( Shaft.Omega ).to.beLessThan( IDLE )
+            end
+        },
+
+        {
+            name = "A load past the idle governor's reserve lugs the engine down and stalls it",
+            func = function()
+                local Step, EntTbl, Shaft = Rig( PISTON )
+
+                Shaft.Omega = IDLE
+                Shaft:AddSource( Constant( -60 ) ) -- Twice what its reserve leaves, though full throttle would hold it
+
+                Step( 198 )
+
+                expect( EntTbl.Firing ).to.beFalse()
             end
         },
 
@@ -292,7 +306,7 @@ return {
                 local Step, EntTbl, Shaft = Rig( PISTON, { revLimiterEnabled = false } )
 
                 Shaft.Omega = IDLE
-                Shaft:AddSource( Constant( -60 ) )
+                Shaft:AddSource( Constant( -15 ) )
 
                 Step( 198 )
 
